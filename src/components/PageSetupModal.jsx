@@ -75,7 +75,7 @@ export default function PageSetupModal({
       <div className="modal-dialog" onClick={e => e.stopPropagation()} style={{ maxWidth: '640px' }}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <Sliders size={20} style={{ color: '#38bdf8' }} />
+            <Sliders size={20} style={{ color: 'var(--primary)' }} />
             <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>
               દસ્તાવેજ પેજ સેટઅપ (Page & Print Setup)
             </h3>
@@ -93,7 +93,7 @@ export default function PageSetupModal({
           <div>
             <label className="field-label" style={{ marginBottom: '0.6rem' }}>
               <span>૧. પેપર સાઈઝ પસંદ કરો (Paper Size)</span>
-              <span style={{ color: '#fbbf24', fontWeight: 700 }}>{PAPER_SIZES[paperSize].widthMm} x {PAPER_SIZES[paperSize].heightMm} mm</span>
+              <span style={{ color: 'var(--accent-gold-dark)', fontWeight: 700 }}>{PAPER_SIZES[paperSize].widthMm} x {PAPER_SIZES[paperSize].heightMm} mm</span>
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
               {Object.entries(PAPER_SIZES).map(([key, info]) => (
@@ -101,8 +101,8 @@ export default function PageSetupModal({
                   key={key}
                   onClick={() => setPaperSize(key)}
                   style={{
-                    background: paperSize === key ? 'rgba(79, 70, 229, 0.2)' : 'var(--bg-surface)',
-                    border: paperSize === key ? '2px solid #4f46e5' : '1px solid var(--border-subtle)',
+                    background: paperSize === key ? '#eff6ff' : '#ffffff',
+                    border: paperSize === key ? '2px solid var(--primary)' : '1px solid var(--border-subtle)',
                     padding: '0.85rem',
                     borderRadius: '8px',
                     cursor: 'pointer',
@@ -111,8 +111,8 @@ export default function PageSetupModal({
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                    <strong style={{ fontSize: '0.88rem', color: paperSize === key ? '#a5b4fc' : '#fff' }}>{info.name}</strong>
-                    {paperSize === key && <Check size={16} style={{ color: '#38bdf8' }} />}
+                    <strong style={{ fontSize: '0.88rem', color: paperSize === key ? 'var(--primary)' : 'var(--text-main)' }}>{info.name}</strong>
+                    {paperSize === key && <Check size={16} style={{ color: 'var(--primary)' }} />}
                   </div>
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                     {info.widthMm} x {info.heightMm} mm
@@ -162,9 +162,9 @@ export default function PageSetupModal({
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div style={{ background: 'var(--bg-surface)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#cbd5e1', marginBottom: '0.35rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-main)', marginBottom: '0.35rem' }}>
                   <span>લાઇન સ્પેસિંગ (Line Height):</span>
-                  <strong style={{ color: '#38bdf8' }}>{lineHeight}</strong>
+                  <strong style={{ color: 'var(--primary)' }}>{lineHeight}</strong>
                 </div>
                 <input 
                   type="range" 
@@ -173,7 +173,7 @@ export default function PageSetupModal({
                   step="0.1"
                   value={lineHeight}
                   onChange={e => setLineHeight(e.target.value)}
-                  style={{ width: '100%', accentColor: '#4f46e5' }}
+                  style={{ width: '100%', accentColor: 'var(--primary)' }}
                 />
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: 'var(--text-subtle)' }}>
                   <span>૧.૨ (કોમ્પેક્ટ)</span>
@@ -183,9 +183,9 @@ export default function PageSetupModal({
               </div>
 
               <div style={{ background: 'var(--bg-surface)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#cbd5e1', marginBottom: '0.35rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-main)', marginBottom: '0.35rem' }}>
                   <span>ફકરા વચ્ચે જગ્યા (Para Spacing):</span>
-                  <strong style={{ color: '#fbbf24' }}>{paragraphSpacing}px</strong>
+                  <strong style={{ color: 'var(--accent-gold-dark)' }}>{paragraphSpacing}px</strong>
                 </div>
                 <input 
                   type="range" 
@@ -194,7 +194,7 @@ export default function PageSetupModal({
                   step="2"
                   value={paragraphSpacing}
                   onChange={e => setParagraphSpacing(e.target.value)}
-                  style={{ width: '100%', accentColor: '#d97706' }}
+                  style={{ width: '100%', accentColor: 'var(--accent-gold)' }}
                 />
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: 'var(--text-subtle)' }}>
                   <span>૮px (સાંકડું)</span>
@@ -275,9 +275,9 @@ export default function PageSetupModal({
               id="showPageNumCheck"
               checked={showPageNumbers}
               onChange={e => setShowPageNumbers(e.target.checked)}
-              style={{ width: '16px', height: '16px', accentColor: '#4f46e5' }}
+              style={{ width: '16px', height: '16px', accentColor: 'var(--primary)' }}
             />
-            <label htmlFor="showPageNumCheck" style={{ fontSize: '0.84rem', color: '#e2e8f0', cursor: 'pointer' }}>
+            <label htmlFor="showPageNumCheck" style={{ fontSize: '0.84rem', color: 'var(--text-main)', cursor: 'pointer' }}>
               દરેક પેજના નીચે પેજ નંબર દર્શાવો (દા.ત. "પેજ ૧ / ૨", "પેજ ૨ / ૨")
             </label>
           </div>

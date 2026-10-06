@@ -170,7 +170,7 @@ export default function TemplateLibrary({
                   <div className="template-card-meta">
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span>બદલવાના પેરામીટર્સ:</span>
-                      <strong style={{ color: '#38bdf8' }}>{varList.length} ફિલ્ડ્સ</strong>
+                      <strong style={{ color: 'var(--primary)' }}>{varList.length} ફિલ્ડ્સ</strong>
                     </div>
                     {template.stampPaperRecommended && (
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>

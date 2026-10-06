@@ -54,6 +54,7 @@ export default function TemplateDesigner({
 
   const [customTagInput, setCustomTagInput] = useState('');
   const [previewMode, setPreviewMode] = useState(false);
+  const [isPhoneticActive, setIsPhoneticActive] = useState(true);
   const textareaRef = useRef(null);
 
   // Discovered variables from current text
@@ -134,7 +135,7 @@ export default function TemplateDesigner({
             {initialTemplate ? 'ફોર્મેટમાં સુધારો કરો (Edit Template)' : 'નવું ફોર્મેટ બનાવો (Template Designer)'}
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-            તમારું મનપસંદ સરકારી કે કાનૂની લખાણ તૈયાર કરો. જે વિગત બદલવાની હોય ત્યાં <code style={{ color: '#38bdf8' }}>&#123;&#123;પેરામીટર&#125;&#125;</code> ટેગ મૂકો.
+            તમારું મનપસંદ સરકારી કે કાનૂની લખાણ તૈયાર કરો. જે વિગત બદલવાની હોય ત્યાં <code style={{ color: 'var(--primary)' }}>&#123;&#123;પેરામીટર&#125;&#125;</code> ટેગ મૂકો.
           </p>
         </div>
 
@@ -210,13 +211,23 @@ export default function TemplateDesigner({
           {/* Editor Header Bar with Tab toggles */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.75rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f8fafc' }}>દસ્તાવેજ કન્ટેન્ટ એડિટર</span>
-              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+              <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)' }}>દસ્તાવેજ કન્ટેન્ટ એડિટર</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                 (કુલ {detectedVariables.length} બદલી શકાય તેવા પેરામીટર્સ મળ્યા)
               </span>
             </div>
 
             <div style={{ display: 'flex', gap: '0.4rem' }}>
+              <button 
+                type="button"
+                className={`phonetic-toggle-btn ${isPhoneticActive ? 'active' : ''}`}
+                onClick={() => setIsPhoneticActive(!isPhoneticActive)}
+                title="અંગ્રેજીમાં ટાઇપ કરતા આપોઆપ ગુજરાતી થશે. શોર્ટકટ: Ctrl+G"
+                style={{ marginRight: '0.4rem' }}
+              >
+                <Keyboard size={13} />
+                <span>ગુજરાતી: {isPhoneticActive ? 'ON' : 'OFF'}</span>
+              </button>
               <button 
                 className={`tool-toggle-btn ${!previewMode ? 'active' : ''}`}
                 onClick={() => setPreviewMode(false)}
@@ -248,6 +259,7 @@ export default function TemplateDesigner({
                 }}
                 value={content}
                 onChange={e => setContent(e.target.value)}
+                onKeyDown={e => handlePhoneticKeyDown(e, isPhoneticActive, val => setContent(val))}
                 placeholder="અહીં તમારું કાનૂની લખાણ લખો અથવા પેસ્ટ કરો. જે શબ્દ બદલવાનો હોય તેને {{પેરામીટર}} સ્વરૂપમાં લખો..."
               />
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
@@ -276,7 +288,7 @@ export default function TemplateDesigner({
         <aside className="editor-sidebar-card">
           {/* Custom Tag Creator */}
           <div>
-            <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#fbbf24' }}>
+            <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--accent-gold-dark)' }}>
               <Tag size={16} />
               <span>નવો પેરામીટર ટેગ બનાવો</span>
             </h3>
@@ -302,7 +314,7 @@ export default function TemplateDesigner({
 
           {/* Quick Legal Tag Palette */}
           <div>
-            <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.5rem', color: '#38bdf8' }}>
+            <h3 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--primary)' }}>
               સામાન્ય કાનૂની ટેગ્સ (૧-ક્લિક ઇન્સર્ટ)
             </h3>
             <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
@@ -328,7 +340,7 @@ export default function TemplateDesigner({
 
           {/* Detected variables in this template */}
           <div>
-            <h3 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.4rem', color: '#a7f3d0' }}>
+            <h3 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.4rem', color: '#059669' }}>
               આ ટેમ્પલેટમાં રહેલા ટેગ્સ ({detectedVariables.length})
             </h3>
             {detectedVariables.length === 0 ? (
@@ -341,10 +353,10 @@ export default function TemplateDesigner({
                   <span key={v} style={{ 
                     fontSize: '0.72rem', 
                     fontFamily: 'monospace', 
-                    background: 'rgba(255,255,255,0.08)', 
+                    background: '#eff6ff', border: '1px solid #dbeafe', 
                     padding: '0.2rem 0.5rem', 
                     borderRadius: '4px',
-                    color: '#fde68a'
+                    color: 'var(--primary-dark)'
                   }}>
                     &#123;&#123;{v}&#125;&#125;
                   </span>
@@ -357,7 +369,7 @@ export default function TemplateDesigner({
 
           {/* Gujarati Legal Clauses Library */}
           <div>
-            <h3 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.5rem', color: '#c084fc' }}>
+            <h3 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.5rem', color: '#7c3aed' }}>
               કાનૂની પ્રમાણિત ફકરાઓ (Clauses)
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -365,14 +377,14 @@ export default function TemplateDesigner({
                 <div 
                   key={idx} 
                   style={{ 
-                    background: 'rgba(255,255,255,0.03)', 
+                    background: '#f8fafc', 
                     border: '1px solid var(--border-subtle)', 
                     padding: '0.6rem', 
                     borderRadius: '6px' 
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                    <strong style={{ fontSize: '0.76rem', color: '#e2e8f0' }}>{phrase.title}</strong>
+                    <strong style={{ fontSize: '0.76rem', color: 'var(--text-main)' }}>{phrase.title}</strong>
                     <button 
                       type="button" 
                       className="btn-secondary" 

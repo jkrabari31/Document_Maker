@@ -126,7 +126,19 @@ export function loadSavedTemplates(initialTemplates) {
     const raw = localStorage.getItem(STORAGE_KEY_TEMPLATES);
     if (!raw) return initialTemplates;
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : initialTemplates;
+    if (!Array.isArray(parsed) || parsed.length === 0) return initialTemplates;
+
+    // Merge any new built-in templates that might not exist in old localStorage cache
+    const merged = [...parsed];
+    initialTemplates.forEach(it => {
+      const idx = merged.findIndex(m => m.id === it.id);
+      if (idx === -1) {
+        merged.push(it);
+      } else if (!merged[idx].isCustom) {
+        merged[idx] = it;
+      }
+    });
+    return merged;
   } catch (e) {
     console.error("Failed to load templates from localStorage", e);
     return initialTemplates;
@@ -294,3 +306,85 @@ export function splitContentIntoPages(renderedHtml) {
   // 3. Otherwise return as single continuous page
   return [renderedHtml];
 }
+
+export const LEGAL_FONTS = [
+  { id: "serif", name: "Noto Serif Gujarati", label: "નોટો સેરીફ (અસલ શાહી કોર્ટ લુક)", family: "'Noto Serif Gujarati', serif" },
+  { id: "sans", name: "Noto Sans Gujarati", label: "નોટો સાન્સ (આધુનિક & ક્રિસ્પ)", family: "'Noto Sans Gujarati', sans-serif" },
+  { id: "rasa", name: "Rasa Gujarati", label: "રાસા (એલિગન્ટ ડીડ સેરીફ)", family: "'Rasa', serif" },
+  { id: "mukta", name: "Mukta Vaani", label: "મુક્તા વાણી (સ્પષ્ટ બોલ્ડ)", family: "'Mukta Vaani', sans-serif" }
+];
+
+const ONES_GUJ = [
+  "", "એક", "બે", "ત્રણ", "ચાર", "પાંચ", "છ", "સાત", "આઠ", "નવ", "દસ",
+  "અગિયાર", "બાર", "તેર", "ચૌદ", "પંદર", "સોળ", "સત્તર", "અઢાર", "ઓગણીસ", "વીસ",
+  "એકવીસ", "બાવીસ", "તેવીસ", "ચોવીસ", "પચ્ચીસ", "છવ્વીસ", "સત્તાવીસ", "અઠ્ઠાવીસ", "ઓગણત્રીસ", "ત્રીસ",
+  "એકત્રીસ", "બત્રીસ", "તેત્રીસ", "ચોત્રીસ", "પાંત્રીસ", "છત્રીસ", "સાડત્રીસ", "અડત્રીસ", "ઓગણચાલીસ", "ચાલીસ",
+  "એકતાલીસ", "બેતાલીસ", "તેતાલીસ", "ચુમ્માલીસ", "પિસ્તાલીસ", "છેતાલીસ", "સુડતાલીસ", "અડતાલીસ", "ઓગણપચાસ", "પચાસ",
+  "એકાવન", "બાવન", "ત્રેપન", "ચોપન", "પંચાવન", "છપ્પન", "સત્તાવન", "અઠ્ઠાવન", "ઓગણસાઠ", "સાઠ",
+  "એકસઠ", "બાસઠ", "ત્રેસઠ", "ચોસઠ", "પાંસઠ", "છાસઠ", "સડસઠ", "અડસઠ", "અગણોસિત્તેર", "સિત્તેર",
+  "એકોતેર", "બોતેર", "તોતેર", "ચોતેર", "પંચોતેર", "છોતેર", "સંતોતેર", "ઈઠોતેર", "ઓગણાએંસી", "એંસી",
+  "એક્યાસી", "બ્યાસી", "ત્યાસી", "ચોર્યાસી", "પંચાસી", "છ્યાસી", "સત્તયાસી", "અઠ્યાસી", "નેવ્યાસી", "નેવું",
+  "એકાણું", "બાણું", "ત્રાણું", "ચોરાણું", "પંચાણું", "છન્નું", "સત્તાણું", "અઠ્ઠાણું", "નવ્વાણું"
+];
+
+function convertTwoDigitGuj(n) {
+  return ONES_GUJ[n] || "";
+}
+
+function convertThreeDigitGuj(n) {
+  let str = "";
+  const hundreds = Math.floor(n / 100);
+  const remainder = n % 100;
+
+  if (hundreds > 0) {
+    str += (ONES_GUJ[hundreds] || "") + " સો ";
+  }
+  if (remainder > 0) {
+    str += convertTwoDigitGuj(remainder);
+  }
+  return str.trim();
+}
+
+/**
+ * Converts any number (e.g. 550000 or "₹ 5,50,000") into Gujarati currency words
+ * e.g. "અંકે રૂપિયા પાંચ લાખ પચાસ હજાર પુરા"
+ */
+export function numberToGujaratiWords(input) {
+  if (!input) return "";
+  const cleanStr = String(input).replace(/[^0-9]/g, '');
+  if (!cleanStr) return "";
+  
+  const num = parseInt(cleanStr, 10);
+  if (num === 0) return "અંકે રૂપિયા શૂન્ય પુરા";
+  if (isNaN(num)) return "";
+
+  let crore = Math.floor(num / 10000000);
+  let remainder = num % 10000000;
+
+  let lakh = Math.floor(remainder / 100000);
+  remainder = remainder % 100000;
+
+  let thousand = Math.floor(remainder / 1000);
+  remainder = remainder % 1000;
+
+  let hundred = remainder;
+
+  let parts = [];
+
+  if (crore > 0) {
+    parts.push(convertTwoDigitGuj(crore) + " કરોડ");
+  }
+  if (lakh > 0) {
+    parts.push(convertTwoDigitGuj(lakh) + " લાખ");
+  }
+  if (thousand > 0) {
+    parts.push(convertTwoDigitGuj(thousand) + " હજાર");
+  }
+  if (hundred > 0) {
+    parts.push(convertThreeDigitGuj(hundred));
+  }
+
+  const words = parts.join(" ");
+  return `અંકે રૂપિયા ${words} પુરા`;
+}
+

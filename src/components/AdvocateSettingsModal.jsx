@@ -55,7 +55,7 @@ export default function AdvocateSettingsModal({
       <div className="modal-dialog" onClick={e => e.stopPropagation()} style={{ maxWidth: '580px' }}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <UserCheck size={20} style={{ color: '#38bdf8' }} />
+            <UserCheck size={20} style={{ color: 'var(--primary)' }} />
             <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>
               એડવોકેટ / એજન્ટ પ્રોફાઇલ સેટિંગ્સ
             </h3>
@@ -138,9 +138,9 @@ export default function AdvocateSettingsModal({
                 id="defaultStampToggle"
                 checked={stampModeDefault}
                 onChange={e => setStampModeDefault(e.target.checked)}
-                style={{ width: '16px', height: '16px', accentColor: '#4f46e5' }}
+                style={{ width: '16px', height: '16px', accentColor: 'var(--primary)' }}
               />
-              <label htmlFor="defaultStampToggle" style={{ fontSize: '0.85rem', color: '#cbd5e1', cursor: 'pointer' }}>
+              <label htmlFor="defaultStampToggle" style={{ fontSize: '0.85rem', color: 'var(--text-main)', cursor: 'pointer' }}>
                 હંમેશા સ્ટેમ્પ પેપર માર્જિન મોડ શરૂ રાખવો
               </label>
             </div>

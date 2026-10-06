@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
+  Keyboard,
+  Type,
+  Calculator,
   Printer, 
   Download, 
   Copy, 
@@ -25,8 +28,11 @@ import {
   saveRecordToStorage,
   loadPageSetup,
   savePageSetup,
-  splitContentIntoPages
+  splitContentIntoPages,
+  LEGAL_FONTS,
+  numberToGujaratiWords
 } from '../utils/documentUtils';
+import { handlePhoneticKeyDown, transliterateWord } from '../utils/gujaratiTransliterate';
 import PageSetupModal, { PAPER_SIZES } from './PageSetupModal';
 
 export default function DocumentStudio({ 
@@ -77,6 +83,24 @@ export default function DocumentStudio({
   const [highlightEmpty, setHighlightEmpty] = useState(true);
   const [copied, setCopied] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
+
+  // Phonetic keyboard & font selection state
+  const [isPhoneticActive, setIsPhoneticActive] = useState(true);
+  const [selectedFontId, setSelectedFontId] = useState('serif');
+  const [quickCalcAmount, setQuickCalcAmount] = useState('');
+  const [quickCalcWords, setQuickCalcWords] = useState('');
+
+  // Global Ctrl+G listener for toggling phonetic typing
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (e.ctrlKey && (e.key === 'g' || e.key === 'G')) {
+        e.preventDefault();
+        setIsPhoneticActive(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
 
   // Page Setup state
   const [pageSetup, setPageSetup] = useState(() => loadPageSetup());
@@ -303,7 +327,7 @@ export default function DocumentStudio({
           <p className="form-panel-subtitle">
             કુલ <strong>{detectedVariables.length}</strong> પેરામીટર્સ 
             {unfilledCount > 0 ? (
-              <span style={{ color: '#fbbf24', marginLeft: '0.4rem' }}>
+              <span style={{ color: 'var(--accent-gold-dark)', marginLeft: '0.4rem' }}>
                 ({unfilledCount} ભરવાના બાકી)
               </span>
             ) : (
@@ -317,7 +341,7 @@ export default function DocumentStudio({
         {/* Action bar for quick helper actions */}
         <div style={{ 
           padding: '0.65rem 1.5rem', 
-          background: 'rgba(0,0,0,0.25)', 
+          background: '#f8fafc', 
           borderBottom: '1px solid var(--border-subtle)',
           display: 'flex',
           alignItems: 'center',
@@ -331,7 +355,7 @@ export default function DocumentStudio({
             title="નમૂના માટે સેમ્પલ ડેટા ભરો"
             style={{ fontSize: '0.75rem' }}
           >
-            <Sparkles size={13} style={{ color: '#fbbf24' }} />
+            <Sparkles size={13} style={{ color: 'var(--accent-gold-dark)' }} />
             <span>સેમ્પલ વિગતો ભરો</span>
           </button>
 
@@ -344,6 +368,49 @@ export default function DocumentStudio({
             <RotateCcw size={13} />
             <span>સાફ કરો</span>
           </button>
+        </div>
+
+        {/* Quick Currency Words Helper Tool */}
+        <div style={{ padding: '0.65rem 1.5rem 0.2rem 1.5rem' }}>
+          <div className="currency-calc-box">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+              <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <Calculator size={13} style={{ color: 'var(--accent-gold-dark)' }} />
+                <span>₹ રકમ અંકે શબ્દોમાં કન્વર્ટર:</span>
+              </span>
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>દા.ત. 500000</span>
+            </div>
+            <div style={{ display: 'flex', gap: '0.4rem' }}>
+              <input 
+                type="text" 
+                className="input-control" 
+                placeholder="રકમ દાખલ કરો (દા.ત. 550000)..." 
+                value={quickCalcAmount}
+                onChange={e => {
+                  setQuickCalcAmount(e.target.value);
+                  setQuickCalcWords(numberToGujaratiWords(e.target.value));
+                }}
+                style={{ padding: '0.35rem 0.6rem', fontSize: '0.8rem' }}
+              />
+            </div>
+            {quickCalcWords && (
+              <div className="result-text">
+                <span>{quickCalcWords}</span>
+                <button 
+                  type="button" 
+                  className="btn-secondary" 
+                  style={{ fontSize: '0.68rem', padding: '0.15rem 0.45rem', background: '#ffffff' }}
+                  onClick={() => {
+                    navigator.clipboard.writeText(quickCalcWords);
+                    alert('કોપી થઈ ગયું: ' + quickCalcWords);
+                  }}
+                  title="ક્લિપબોર્ડમાં કોપી કરો"
+                >
+                  કોપી
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Scrollable Form Body */}
@@ -376,17 +443,19 @@ export default function DocumentStudio({
                         <textarea
                           className="input-control"
                           value={val}
-                          placeholder={`અહીં ${varKey.replace(/_/g, " ")} દાખલ કરો...`}
+                          placeholder={`અહીં ${varKey.replace(/_/g, " ")} દાખલ કરો... (અંગ્રેજીમાં ટાઇપ કરશો તો આપોઆપ ગુજરાતી થશે)`}
                           rows={2}
                           onChange={e => handleInputChange(varKey, e.target.value)}
+                          onKeyDown={e => handlePhoneticKeyDown(e, isPhoneticActive, newVal => handleInputChange(varKey, newVal))}
                         />
                       ) : (
                         <input
-                          type={varKey.includes("તારીખ") ? "text" : "text"}
+                          type="text"
                           className="input-control"
                           value={val}
                           placeholder={`અહીં ${varKey.replace(/_/g, " ")} દાખલ કરો...`}
                           onChange={e => handleInputChange(varKey, e.target.value)}
+                          onKeyDown={e => handlePhoneticKeyDown(e, isPhoneticActive, newVal => handleInputChange(varKey, newVal))}
                         />
                       )}
                     </div>
@@ -422,14 +491,40 @@ export default function DocumentStudio({
         {/* Preview Toolbar */}
         <div className="preview-toolbar">
           <div className="toolbar-controls">
+            {/* Phonetic Keyboard Toggle */}
+            <button 
+              type="button"
+              className={`phonetic-toggle-btn ${isPhoneticActive ? 'active' : ''}`}
+              onClick={() => setIsPhoneticActive(!isPhoneticActive)}
+              title="અંગ્રેજીમાં ટાઇપ કરતા આપોઆપ ગુજરાતી થશે (દા.ત. rajesh -> રાજેશ). શોર્ટકટ: Ctrl+G"
+            >
+              <Keyboard size={14} />
+              <span>ગુજરાતી ટાઇપિંગ: {isPhoneticActive ? 'ચાલુ (ON)' : 'બંધ'}</span>
+            </button>
+
+            {/* Legal Font Selector */}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+              <Type size={14} style={{ color: 'var(--primary)' }} />
+              <select 
+                className="font-select-control"
+                value={selectedFontId}
+                onChange={e => setSelectedFontId(e.target.value)}
+                title="દસ્તાવેજ માટે પ્રમાણિત લીગલ ગુજરાતી ફોન્ટ પસંદ કરો"
+              >
+                {LEGAL_FONTS.map(f => (
+                  <option key={f.id} value={f.id}>{f.label}</option>
+                ))}
+              </select>
+            </div>
+
             {/* Page Setup Button */}
             <button 
               className="tool-toggle-btn active"
               onClick={() => setIsPageSetupOpen(true)}
               title="પેપર સાઇઝ (A4 / Legal), માર્જિન્સ અને સ્પેસિંગ સેટઅપ"
-              style={{ background: 'rgba(79, 70, 229, 0.3)', borderColor: '#6366f1' }}
+              style={{ background: '#eff6ff', borderColor: 'var(--primary)' }}
             >
-              <Settings size={15} style={{ color: '#38bdf8' }} />
+              <Settings size={15} style={{ color: 'var(--primary)' }} />
               <span>પેજ સેટઅપ: {PAPER_SIZES[pageSetup.paperSize]?.name.split(' ')[0]}</span>
             </button>
 
@@ -451,7 +546,7 @@ export default function DocumentStudio({
               className={`tool-toggle-btn ${isDirectEditMode ? 'active' : ''}`}
               onClick={() => setIsDirectEditMode(!isDirectEditMode)}
               title="પેજ પર સીધું ક્લિક કરીને લખાણ, સ્પેસ કે Enter બદલવાની છૂટ"
-              style={isDirectEditMode ? { background: 'rgba(16, 185, 129, 0.25)', borderColor: '#10b981', color: '#6ee7b7' } : {}}
+              style={isDirectEditMode ? { background: '#ecfdf5', borderColor: '#10b981', color: '#047857' } : {}}
             >
               <Edit3 size={14} />
               <span>ડાયરેક્ટ એડિટ: {isDirectEditMode ? 'ચાલુ (ON)' : 'બંધ (OFF)'}</span>
@@ -468,7 +563,7 @@ export default function DocumentStudio({
             </button>
 
             {stampPaperMode && (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(0,0,0,0.3)', padding: '0.2rem 0.6rem', borderRadius: '4px' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: '#f1f5f9', border: '1px solid var(--border-subtle)', padding: '0.2rem 0.6rem', borderRadius: '4px' }}>
                 <span style={{ fontSize: '0.72rem', color: '#fbbf24' }}>ઓફસેટ:</span>
                 <input 
                   type="range" 
@@ -478,7 +573,7 @@ export default function DocumentStudio({
                   onChange={e => setStampMarginMm(Number(e.target.value))}
                   style={{ width: '70px', accentColor: '#d97706' }} 
                 />
-                <span style={{ fontSize: '0.72rem', color: '#fff', fontFamily: 'monospace' }}>{stampMarginMm}mm</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-main)', fontWeight: 600, fontFamily: 'monospace' }}>{stampMarginMm}mm</span>
               </div>
             )}
 
@@ -492,7 +587,7 @@ export default function DocumentStudio({
               >
                 -
               </button>
-              <span style={{ fontSize: '0.75rem', color: '#fff', minWidth: '28px', textAlign: 'center' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-main)', fontWeight: 600, minWidth: '28px', textAlign: 'center' }}>
                 {fontSizePt}pt
               </span>
               <button 
@@ -640,6 +735,7 @@ export default function DocumentStudio({
                     paddingBottom: `${pageSetup.marginBottom}mm`,
                     paddingLeft: `${pageSetup.marginLeft}mm`,
                     paddingRight: `${pageSetup.marginRight}mm`,
+                    fontFamily: LEGAL_FONTS.find(f => f.id === selectedFontId)?.family || 'var(--font-doc)',
                     fontSize: `${fontSizePt}pt`,
                     lineHeight: pageSetup.lineHeight,
                   }}

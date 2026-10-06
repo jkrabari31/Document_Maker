@@ -108,12 +108,12 @@ export default function ClientRecords({
                 <tr key={record.id}>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
-                      <User size={15} style={{ color: '#fbbf24' }} />
+                      <User size={15} style={{ color: 'var(--accent-gold-dark)' }} />
                       <span style={{ fontFamily: 'var(--font-doc)' }}>{record.clientName || 'અનામી'}</span>
                     </div>
                   </td>
                   <td>
-                    <span style={{ color: '#93c5fd' }}>{record.templateTitle}</span>
+                    <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{record.templateTitle}</span>
                   </td>
                   <td>
                     <div style={{ display: 'flex', flexDirection: 'column', fontSize: '0.78rem' }}>

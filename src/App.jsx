@@ -4,6 +4,7 @@ import DocumentStudio from './components/DocumentStudio';
 import TemplateLibrary from './components/TemplateLibrary';
 import TemplateDesigner from './components/TemplateDesigner';
 import ClientRecords from './components/ClientRecords';
+import PedhinamuMaker from './components/PedhinamuMaker';
 import StampGuideModal from './components/StampGuideModal';
 import AdvocateSettingsModal from './components/AdvocateSettingsModal';
 import { initialTemplates } from './data/initialTemplates';
@@ -193,6 +194,12 @@ export default function App() {
             onOpenTemplateLibrary={() => setActiveTab('templates')}
             userSettings={userSettings}
             onRecordSaved={handleRecordSaved}
+          />
+        )}
+
+        {activeTab === 'pedhinamu' && (
+          <PedhinamuMaker 
+            userSettings={userSettings}
           />
         )}
 

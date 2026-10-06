@@ -1,4 +1,3 @@
-import React from 'react';
 import { 
   FileText, 
   FolderOpen, 
@@ -7,8 +6,9 @@ import {
   Printer, 
   HelpCircle, 
   UserCheck, 
-  Sparkles,
-  Download
+  Sparkles, 
+  Download,
+  GitBranch
 } from 'lucide-react';
 
 export default function Navbar({ 
@@ -29,7 +29,7 @@ export default function Navbar({
         <div className="brand-text">
           <h1>
             <span className="gujarati-title">દસ્તાવેજ માસ્ટર</span>
-            <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 500 }}>| Dastavej Pro</span>
+            <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>| Dastavej Pro</span>
           </h1>
           <p>Advocate & Revenue Document Automation Studio</p>
         </div>
@@ -42,6 +42,15 @@ export default function Navbar({
         >
           <Sparkles size={16} />
           <span>દસ્તાવેજ બનાવો (Studio)</span>
+        </button>
+
+        <button 
+          className={`nav-tab-btn ${activeTab === 'pedhinamu' ? 'active' : ''}`}
+          onClick={() => setActiveTab('pedhinamu')}
+          title="વારસાઈ પેઢીનામું / ફેમિલી ટ્રી ઓટો-જનરેટર"
+        >
+          <GitBranch size={16} style={{ color: activeTab === 'pedhinamu' ? 'var(--primary)' : 'var(--accent-gold-dark)' }} />
+          <span>વારસાઈ પેઢીનામું</span>
         </button>
 
         <button 
@@ -77,7 +86,7 @@ export default function Navbar({
           onClick={onOpenStampGuide}
           title="સ્ટેમ્પ પેપર માર્ગદર્શિકા (Stamp Paper Margins Guide)"
         >
-          <HelpCircle size={16} style={{ color: '#fbbf24' }} />
+          <HelpCircle size={16} style={{ color: 'var(--accent-gold-dark)' }} />
           <span>સ્ટેમ્પ ગાઇડ</span>
         </button>
 
@@ -86,7 +95,7 @@ export default function Navbar({
           onClick={onOpenSettings}
           title="એડવોકેટ / એજન્ટ પ્રોફાઇલ વિગતો"
         >
-          <UserCheck size={16} style={{ color: '#38bdf8' }} />
+          <UserCheck size={16} style={{ color: 'var(--primary)' }} />
           <span>પ્રોફાઇલ સેટિંગ્સ</span>
         </button>
 

@@ -10,10 +10,12 @@ import {
   Tag, 
   Bookmark,
   Layers,
-  ArrowRight
+  ArrowRight,
+  Keyboard
 } from 'lucide-react';
 import { extractVariables } from '../utils/documentUtils';
 import { quickVariableSnippets, gujaratiLegalPhrases } from '../data/initialTemplates';
+import { handlePhoneticKeyDown } from '../utils/gujaratiTransliterate';
 
 export default function TemplateDesigner({ 
   initialTemplate, 

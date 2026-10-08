@@ -30,7 +30,9 @@ import {
   Underline,
   FileCheck,
   Undo2,
-  Redo2
+  Redo2,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { 
   extractVariables, 
@@ -415,6 +417,18 @@ export default function DocumentStudio({
   // Direct editing on paper state
   const [isDirectEditMode, setIsDirectEditMode] = useState(false);
   const [customDirectHtml, setCustomDirectHtml] = useState(null);
+  const [isFullscreenReview, setIsFullscreenReview] = useState(false);
+
+  // Esc key listener to exit full screen review mode
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isFullscreenReview) {
+        setIsFullscreenReview(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreenReview]);
 
   // History stack for undo / redo
   const [historyStack, setHistoryStack] = useState([]);
@@ -746,43 +760,63 @@ export default function DocumentStudio({
       setIsDirectEditMode(true);
     }
 
+    // Capture latest HTML from all document bodies
+    const docBodies = document.querySelectorAll('.document-body');
+    let currentHtml = "";
+    if (docBodies.length === 1) {
+      currentHtml = docBodies[0].innerHTML;
+    } else if (docBodies.length > 1) {
+      currentHtml = Array.from(docBodies).map(b => b.innerHTML).join('\n\n---PAGE_BREAK---\n\n');
+    } else {
+      currentHtml = customDirectHtml !== null ? customDirectHtml : rawRenderedContent;
+    }
+
     const sel = window.getSelection();
-    let insertedInSelection = false;
+    let hasInsertedAtCaret = false;
 
     if (sel && sel.rangeCount > 0) {
       const range = sel.getRangeAt(0);
       let container = range.commonAncestorContainer;
+      let isInsideDoc = false;
       while (container && container !== document.body) {
         if (container.classList && container.classList.contains('document-body')) {
+          isInsideDoc = true;
           break;
         }
         container = container.parentElement;
       }
 
-      if (container && container.classList && container.classList.contains('document-body')) {
-        const textNode = document.createTextNode("\n---PAGE_BREAK---\n");
+      if (isInsideDoc) {
+        const textNode = document.createTextNode('\n\n---PAGE_BREAK---\n\n');
         range.deleteContents();
         range.insertNode(textNode);
-        range.setStartAfter(textNode);
-        range.setEndAfter(textNode);
-        sel.removeAllRanges();
-        sel.addRange(range);
-        insertedInSelection = true;
+        hasInsertedAtCaret = true;
+
+        const updatedBodies = document.querySelectorAll('.document-body');
+        const updatedHtml = Array.from(updatedBodies).map(b => b.innerHTML).join('\n\n---PAGE_BREAK---\n\n');
+        setCustomDirectHtml(updatedHtml);
+        return;
       }
     }
 
-    const docBodies = document.querySelectorAll('.document-body');
-    if (docBodies.length > 0) {
+    // If caret was not inside document body (e.g. user clicked button without focusing on text first):
+    // Split logically before verification box or at paragraph midpoint so Page 2 is NOT empty!
+    if (!hasInsertedAtCaret) {
       let combined = "";
-      if (insertedInSelection) {
-        combined = Array.from(docBodies).map(b => b.innerHTML).join('\n\n---PAGE_BREAK---\n\n');
-      } else {
-        const currentHtml = customDirectHtml !== null ? customDirectHtml : rawRenderedContent;
-        if (currentHtml.includes('class="doc-verification-box"') && !currentHtml.includes('---PAGE_BREAK---')) {
-          combined = currentHtml.replace('<div class="doc-verification-box"', '\n\n---PAGE_BREAK---\n\n<div class="doc-verification-box"');
+      if (currentHtml.includes('<div class="doc-verification-box"') && !currentHtml.includes('---PAGE_BREAK---')) {
+        combined = currentHtml.replace('<div class="doc-verification-box"', '\n\n---PAGE_BREAK---\n\n<div class="doc-verification-box"');
+      } else if (currentHtml.includes('</p>')) {
+        const paragraphs = currentHtml.split('</p>');
+        if (paragraphs.length > 2) {
+          const mid = Math.ceil(paragraphs.length / 2);
+          const p1 = paragraphs.slice(0, mid).join('</p>') + '</p>';
+          const p2 = paragraphs.slice(mid).join('</p>');
+          combined = p1 + '\n\n---PAGE_BREAK---\n\n' + p2;
         } else {
-          combined = currentHtml + "\n\n---PAGE_BREAK---\n\n";
+          combined = currentHtml + '\n\n---PAGE_BREAK---\n\n<p class="doc-para">અહીંથી બીજું પાનું શરૂ થાય છે...</p>';
         }
+      } else {
+        combined = currentHtml + '\n\n---PAGE_BREAK---\n\n<p class="doc-para">અહીંથી બીજું પાનું શરૂ થાય છે...</p>';
       }
       setCustomDirectHtml(combined);
     }
@@ -796,7 +830,7 @@ export default function DocumentStudio({
   };
 
   return (
-    <div className="studio-container">
+    <div className={`studio-container ${isFullscreenReview ? 'fullscreen-review-active' : ''}`}>
       <style>{`
         @media print {
           @page {
@@ -1370,6 +1404,48 @@ export default function DocumentStudio({
 
       {/* ================= RIGHT PANEL: LIVE DOCUMENT CANVAS ================= */}
       <main className="studio-preview-panel">
+        {/* Fullscreen Review Top Announcement Banner */}
+        {isFullscreenReview && (
+          <div className="fullscreen-review-banner">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <span style={{ fontSize: '1.05rem' }}>🔍</span>
+              <strong style={{ fontSize: '0.88rem' }}>સંપૂર્ણ દસ્તાવેજ રિવ્યૂ મોડ (Full Screen Review Mode)</strong>
+              <span style={{ color: '#94a3b8', fontSize: '0.74rem' }}>— કીબોર્ડ પરથી [Esc] કી દબાવીને સામાન્ય વ્યૂમાં પાછા જઈ શકો છો</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <button 
+                type="button" 
+                className="btn-primary" 
+                onClick={handlePrint}
+                style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }}
+              >
+                <Printer size={13} />
+                <span>પ્રિન્ટ / PDF</span>
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setIsFullscreenReview(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.15)',
+                  color: '#ffffff',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  borderRadius: '6px',
+                  padding: '0.35rem 0.75rem',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem'
+                }}
+              >
+                <Minimize2 size={13} />
+                <span>સામાન્ય વ્યૂ (Exit)</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Preview Toolbar (Two-Tier Structured Layout to Prevent Overlap) */}
         <div className="preview-toolbar">
           
@@ -1409,6 +1485,7 @@ export default function DocumentStudio({
                 <button
                   type="button"
                   className="format-icon-btn"
+                  onMouseDown={e => e.preventDefault()}
                   onClick={() => handleFormatText('bold')}
                   title="Bold (ઘાટા અક્ષરો) - Ctrl+B"
                   aria-label="Bold"
@@ -1418,6 +1495,7 @@ export default function DocumentStudio({
                 <button
                   type="button"
                   className="format-icon-btn"
+                  onMouseDown={e => e.preventDefault()}
                   onClick={() => handleFormatText('italic')}
                   title="Italic (ત્રાંસા અક્ષરો) - Ctrl+I"
                   aria-label="Italic"
@@ -1427,6 +1505,7 @@ export default function DocumentStudio({
                 <button
                   type="button"
                   className="format-icon-btn"
+                  onMouseDown={e => e.preventDefault()}
                   onClick={() => handleFormatText('underline')}
                   title="Underline (નીચે લીટી) - Ctrl+U"
                   aria-label="Underline"
@@ -1440,6 +1519,7 @@ export default function DocumentStudio({
                 <button
                   type="button"
                   className="format-icon-btn"
+                  onMouseDown={e => e.preventDefault()}
                   onClick={handleUndo}
                   title="Undo (છેલ્લો ફેરફાર પાછો ખેંચો) - Ctrl+Z"
                   aria-label="Undo"
@@ -1449,6 +1529,7 @@ export default function DocumentStudio({
                 <button
                   type="button"
                   className="format-icon-btn"
+                  onMouseDown={e => e.preventDefault()}
                   onClick={handleRedo}
                   title="Redo (પાછો ખેંચેલ ફેરફાર ફરી કરો) - Ctrl+Y"
                   aria-label="Redo"
@@ -1540,8 +1621,9 @@ export default function DocumentStudio({
               {/* Page Break Inserter */}
               <button 
                 className="tool-toggle-btn"
+                onMouseDown={e => e.preventDefault()}
                 onClick={handleInsertPageBreak}
-                title="નવા પાના માટે પેજ બ્રેક (Page Break) ઉમેરો"
+                title="જ્યાં કર્સર હોય ત્યાંથી નવું પાનું (Page Break) બનાવો"
               >
                 <SplitSquareVertical size={13} />
                 <span>+ નવું પેજ (Break)</span>
@@ -1585,24 +1667,52 @@ export default function DocumentStudio({
               )}
             </div>
 
-            {/* Zoom Segmented Control */}
-            <div className="zoom-segmented-control">
-              <button 
-                className="zoom-btn" 
-                onClick={() => setZoomLevel(Math.max(60, zoomLevel - 10))}
-                title="Zoom Out"
+            {/* Zoom Segmented Control & Fullscreen Toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              <div className="zoom-segmented-control">
+                <button 
+                  type="button"
+                  className="zoom-btn" 
+                  onClick={() => setZoomLevel(Math.max(60, zoomLevel - 10))}
+                  title="Zoom Out (-10%)"
+                >
+                  -
+                </button>
+                <span className="zoom-text">
+                  {zoomLevel}%
+                </span>
+                <button 
+                  type="button"
+                  className="zoom-btn" 
+                  onClick={() => setZoomLevel(Math.min(140, zoomLevel + 10))}
+                  title="Zoom In (+10%)"
+                >
+                  +
+                </button>
+              </div>
+
+              {/* Fullscreen Icon-Only Button */}
+              <button
+                type="button"
+                className={`format-icon-btn ${isFullscreenReview ? 'active' : ''}`}
+                onClick={() => setIsFullscreenReview(!isFullscreenReview)}
+                title={isFullscreenReview ? "Exit Full Screen" : "Full Screen"}
+                aria-label={isFullscreenReview ? "Exit Full Screen" : "Full Screen"}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '6px',
+                  border: isFullscreenReview ? '1px solid #3b82f6' : '1px solid #cbd5e1',
+                  background: isFullscreenReview ? '#eff6ff' : '#ffffff',
+                  color: isFullscreenReview ? '#1d4ed8' : '#475569',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
               >
-                -
-              </button>
-              <span className="zoom-text">
-                {zoomLevel}%
-              </span>
-              <button 
-                className="zoom-btn" 
-                onClick={() => setZoomLevel(Math.min(140, zoomLevel + 10))}
-                title="Zoom In"
-              >
-                +
+                {isFullscreenReview ? <Minimize2 size={15} strokeWidth={2.2} /> : <Maximize2 size={15} strokeWidth={2.2} />}
               </button>
             </div>
           </div>
@@ -1613,8 +1723,9 @@ export default function DocumentStudio({
           <div className="document-pages-container">
             {pages.map((pageHtml, index) => {
               const paperStyle = PAPER_SIZES[pageSetup.paperSize] || PAPER_SIZES.A4;
+              const isContinuous = pageSetup.viewMode === 'continuous';
               const sheetWidth = `${paperStyle.widthMm || 210}mm`;
-              const sheetMinHeight = `${paperStyle.heightMm || 297}mm`;
+              const sheetMinHeight = isContinuous ? 'auto' : `${paperStyle.heightMm || 297}mm`;
               const isFirstPage = index === 0;
               const effectiveTopMarginMm = (isFirstPage && stampPaperMode) 
                 ? stampMarginMm 
@@ -1630,7 +1741,7 @@ export default function DocumentStudio({
               return (
                 <div 
                   key={index} 
-                  className={`legal-sheet ${isFirstPage && stampPaperMode ? 'stamp-paper-mode' : ''}`}
+                  className={`legal-sheet ${isContinuous ? 'continuous-mode' : ''} ${isFirstPage && stampPaperMode ? 'stamp-paper-mode' : ''}`}
                   style={{
                     width: sheetWidth,
                     minHeight: sheetMinHeight,
@@ -1663,7 +1774,7 @@ export default function DocumentStudio({
                   )}
 
                   {/* Multi-page Header for Page 2+ */}
-                  {index > 0 && (
+                  {!isContinuous && index > 0 && (
                     <div className="multi-page-header-line">
                       <span>{currentTemplate.title} (પાનું નં. {index + 1})</span>
                       <span>અસીલ: {isPedhinamu ? applicantName : (formValues['અરજદારનું_નામ'] || formValues['વેચનારનું_પૂરું_નામ'] || '')}</span>
@@ -1694,12 +1805,20 @@ export default function DocumentStudio({
                   />
 
                   {/* Page Footer */}
-                  <div className="page-footer-indicator">
-                    <span>પાનું નં. {index + 1} / {pages.length}</span>
-                    {pages.length > 1 && index < pages.length - 1 && (
-                      <span>(ક્રમશઃ પાના નં. {index + 2} ઉપર...)</span>
-                    )}
-                  </div>
+                  {pageSetup.showPageNumbers !== false && (
+                    <div className="page-footer-indicator">
+                      {isContinuous ? (
+                        <span>સળંગ પેપર મોડ (Continuous View)</span>
+                      ) : (
+                        <>
+                          <span>પાનું નં. {index + 1} / {pages.length}</span>
+                          {pages.length > 1 && index < pages.length - 1 && (
+                            <span>(ક્રમશઃ પાના નં. {index + 2} ઉપર...)</span>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}

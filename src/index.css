@@ -1437,6 +1437,84 @@ textarea.input-control {
 }
 
 /* =========================================================================
+   FULLSCREEN DOCUMENT REVIEW MODE
+   ========================================================================= */
+.studio-container.fullscreen-review-active {
+  grid-template-columns: 1fr !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 99999 !important;
+  background: #e2e8f0 !important;
+}
+
+.studio-container.fullscreen-review-active .studio-form-panel {
+  display: none !important;
+}
+
+.studio-container.fullscreen-review-active .studio-preview-panel {
+  height: 100vh !important;
+}
+
+.fullscreen-review-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #f8fafc;
+  padding: 0.55rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 25;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.floating-fullscreen-btn {
+  position: absolute;
+  bottom: 1.5rem;
+  right: 1.75rem;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: #1e3a8a;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 30px;
+  padding: 0.5rem 0.95rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  transition: all 0.2s ease;
+}
+
+.floating-fullscreen-btn:hover {
+  transform: translateY(-2px);
+  background: #2563eb;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
+}
+
+.floating-fullscreen-btn:active {
+  transform: translateY(0);
+}
+
+/* =========================================================================
    PRINT ENGINE OPTIMIZATION - CRITICAL FOR ADVOCATES & STAMP PAPER PRINTING
    ========================================================================= */
 @media print {
@@ -1454,6 +1532,8 @@ textarea.input-control {
   .app-header,
   .studio-form-panel,
   .preview-toolbar,
+  .fullscreen-review-banner,
+  .floating-fullscreen-btn,
   .stamp-notice-banner,
   .stamp-paper-placeholder-zone,
   .bg-ambient,

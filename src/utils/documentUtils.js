@@ -358,9 +358,20 @@ export function savePageSetup(setup) {
 /**
  * Splits document HTML into distinct pages for multi-page real print sheet view
  */
-export function splitContentIntoPages(renderedHtml) {
+export function splitContentIntoPages(renderedHtml, pageSetup) {
   if (!renderedHtml) return [""];
 
+  // If Continuous mode is selected in Page Setup, return as a single continuous sheet
+  if (pageSetup && pageSetup.viewMode === "continuous") {
+    const continuousContent = renderedHtml
+      .replace(
+        /---PAGE_BREAK---|::PAGE_BREAK::|<div[^>]*class=["'][^"']*page-break-marker[^"']*["'][^>]*>.*?<\/div>/gi,
+        '<div class="continuous-page-break-divider" style="margin: 28px 0; border-top: 1.5px dashed #cbd5e1; text-align: center; position: relative;"><span style="position: relative; top: -10px; background: #ffffff; padding: 0 12px; font-size: 11px; color: #94a3b8; font-family: sans-serif; font-weight: 600;">--- પેજ બ્રેક (Page Break) ---</span></div>'
+      );
+    return [continuousContent];
+  }
+
+  // Multi-page mode (Default):
   // 1. Explicit user page breaks (text marker or HTML marker)
   if (
     renderedHtml.includes("---PAGE_BREAK---") || 

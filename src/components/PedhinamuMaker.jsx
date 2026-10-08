@@ -23,6 +23,8 @@ export default function PedhinamuMaker({ userSettings }) {
   const [isPhoneticActive, setIsPhoneticActive] = useState(true);
   const [stampPaperMode, setStampPaperMode] = useState(false);
   const [stampMarginMm, setStampMarginMm] = useState(100);
+  const [showTreeMap, setShowTreeMap] = useState(true);
+  const [showTable, setShowTable] = useState(true);
   const [copied, setCopied] = useState(false);
 
   // Deceased / Root Person Info
@@ -532,6 +534,24 @@ export default function PedhinamuMaker({ userSettings }) {
         <div className="preview-toolbar">
           <div className="toolbar-controls">
             <button 
+              className={`tool-toggle-btn ${showTreeMap ? 'active' : ''}`}
+              onClick={() => setShowTreeMap(!showTreeMap)}
+              title="વિઝ્યુઅલ વારસાઈ આંબો (Tree Chart) ચાલુ / બંધ"
+            >
+              <GitBranch size={14} />
+              <span>વિઝ્યુઅલ આંબો (Tree): {showTreeMap ? 'ચાલુ (ON)' : 'બંધ'}</span>
+            </button>
+
+            <button 
+              className={`tool-toggle-btn ${showTable ? 'active' : ''}`}
+              onClick={() => setShowTable(!showTable)}
+              title="વારસદાર વિગત કોષ્ટક (Table) ચાલુ / બંધ"
+            >
+              <FileText size={14} />
+              <span>વારસદાર ટેબલ: {showTable ? 'ચાલુ (ON)' : 'બંધ'}</span>
+            </button>
+
+            <button 
               className={`tool-toggle-btn ${stampPaperMode ? 'active' : ''}`}
               onClick={() => setStampPaperMode(!stampPaperMode)}
               title="₹ ૫૦/૧૦૦ ના ઇ-સ્ટેમ્પ પેપર પર પ્રિન્ટ કરવા ઉપરથી જગ્યા છોડો"
@@ -649,66 +669,155 @@ export default function PedhinamuMaker({ userSettings }) {
                 </p>
               </div>
 
-              {/* ================= HEIRS TABLE ================= */}
-              <div style={{ margin: '14pt 0' }}>
-                <div style={{ fontWeight: 700, fontSize: '11pt', marginBottom: '4pt', textAlign: 'center', color: '#1e293b' }}>
-                  કાયદેસરના વારસદારોની વિગત દર્શાવતી તાલિકા (વારસાઈ આંબો):
-                </div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5pt', border: '1px solid #334155' }}>
-                  <thead>
-                    <tr style={{ background: '#f1f5f9', borderBottom: '1.5px solid #334155' }}>
-                      <th style={{ border: '1px solid #334155', padding: '6pt 4pt', width: '35px', textAlign: 'center' }}>ક્રમ</th>
-                      <th style={{ border: '1px solid #334155', padding: '6pt 6pt', textAlign: 'left' }}>વારસદારનું પૂરું નામ</th>
-                      <th style={{ border: '1px solid #334155', padding: '6pt 6pt', width: '120px', textAlign: 'center' }}>સ્વર્ગસ્થ સાથે સંબંધ</th>
-                      <th style={{ border: '1px solid #334155', padding: '6pt 4pt', width: '60px', textAlign: 'center' }}>ઉંમર</th>
-                      <th style={{ border: '1px solid #334155', padding: '6pt 6pt', width: '100px', textAlign: 'center' }}>હાલની સ્થિતિ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {/* Spouse */}
+              {/* ================= VISUAL FAMILY TREE CHART (આંબો ચાર્ટ) ================= */}
+              {showTreeMap && (
+                <div className="pedhinamu-tree-wrapper">
+                  <div style={{ fontWeight: 700, fontSize: '10.5pt', marginBottom: '8pt', color: '#1e293b' }}>
+                    🌳 વારસાઈ આંબો (VISUAL FAMILY TREE MAP)
+                  </div>
+
+                  {/* Root Deceased Person Box */}
+                  <div className="tree-root-box">
+                    <div style={{ fontWeight: 800, fontSize: '11pt', color: '#1e293b' }}>
+                      {deceasedName || 'સ્વર્ગસ્થ મૂળ પુરુષ'}
+                    </div>
+                    <div style={{ fontSize: '8.5pt', color: '#64748b', marginTop: '1pt' }}>
+                      (મરણ તારીખ: {deathDate || '-'})
+                    </div>
                     {spouseName && (
-                      <tr>
-                        <td style={{ border: '1px solid #334155', padding: '5pt 4pt', textAlign: 'center' }}>૧</td>
-                        <td style={{ border: '1px solid #334155', padding: '5pt 6pt', fontWeight: 600 }}>{spouseName}</td>
-                        <td style={{ border: '1px solid #334155', padding: '5pt 6pt', textAlign: 'center' }}>વિધવા પત્ની</td>
-                        <td style={{ border: '1px solid #334155', padding: '5pt 4pt', textAlign: 'center' }}>{spouseAge} વર્ષ</td>
-                        <td style={{ border: '1px solid #334155', padding: '5pt 6pt', textAlign: 'center' }}>{spouseStatus}</td>
-                      </tr>
+                      <div style={{ fontSize: '9pt', color: '#2563eb', fontWeight: 600, marginTop: '2pt', borderTop: '1px dashed #cbd5e1', paddingTop: '2pt' }}>
+                        પત્ની: {spouseName} ({spouseStatus})
+                      </div>
                     )}
+                  </div>
 
-                    {/* Sons */}
+                  {/* Connector Stem */}
+                  <div className="tree-connector-line" />
+                  
+                  {/* Horizontal Branch Bar */}
+                  {(sons.length > 0 || daughters.length > 0) && (
+                    <div 
+                      className="tree-horizontal-bar" 
+                      style={{ width: `${Math.min(95, Math.max(35, (sons.length + daughters.length) * 20))}%` }} 
+                    />
+                  )}
+
+                  {/* Children Nodes Grid */}
+                  <div className="tree-heirs-grid">
+                    {/* Sons Nodes */}
                     {sons.map((son, i) => (
-                      <tr key={son.id}>
-                        <td style={{ border: '1px solid #334155', padding: '5pt 4pt', textAlign: 'center' }}>{(spouseName ? 2 : 1) + i}</td>
-                        <td style={{ border: '1px solid #334155', padding: '5pt 6pt' }}>
-                          <span style={{ fontWeight: 600 }}>{son.name || `પુત્ર #${i + 1}`}</span>
-                          {son.subHeirs && (
-                            <div style={{ fontSize: '9pt', color: '#475569', marginTop: '2pt' }}>
-                              ↳ શાખા વારસદારો: {son.subHeirs}
-                            </div>
-                          )}
-                        </td>
-                        <td style={{ border: '1px solid #334155', padding: '5pt 6pt', textAlign: 'center' }}>દીકરો</td>
-                        <td style={{ border: '1px solid #334155', padding: '5pt 4pt', textAlign: 'center' }}>{son.age} {son.age ? 'વર્ષ' : '-'}</td>
-                        <td style={{ border: '1px solid #334155', padding: '5pt 6pt', textAlign: 'center', color: son.status === 'મરણ ગયેલ' ? '#b91c1c' : '#047857', fontWeight: 600 }}>
-                          {son.status}
-                        </td>
-                      </tr>
+                      <div 
+                        key={son.id} 
+                        className={`tree-heir-node son-node ${son.status === 'મરણ ગયેલ' ? 'deceased-node' : ''}`}
+                      >
+                        <div style={{ fontWeight: 700, color: son.status === 'મરણ ગયેલ' ? '#991b1b' : '#1e293b' }}>
+                          {son.name || `પુત્ર #${i + 1}`}
+                        </div>
+                        <div style={{ fontSize: '8pt', color: '#64748b' }}>
+                          દીકરો {son.age ? `(ઉં. ${son.age})` : ''}
+                        </div>
+                        <div style={{ 
+                          fontSize: '7.5pt', 
+                          fontWeight: 700, 
+                          color: son.status === 'મરણ ગયેલ' ? '#b91c1c' : '#047857',
+                          marginTop: '2pt'
+                        }}>
+                          [{son.status}]
+                        </div>
+
+                        {/* Sub-branch for deceased son's heirs */}
+                        {son.status === 'મરણ ગયેલ' && son.subHeirs && (
+                          <div className="tree-sub-branch-box">
+                            <div style={{ fontWeight: 700, fontSize: '7.5pt' }}>↳ શાખા વારસદારો:</div>
+                            <div>{son.subHeirs}</div>
+                          </div>
+                        )}
+                      </div>
                     ))}
 
-                    {/* Daughters */}
+                    {/* Daughters Nodes */}
                     {daughters.map((daughter, i) => (
-                      <tr key={daughter.id}>
-                        <td style={{ border: '1px solid #334155', padding: '5pt 4pt', textAlign: 'center' }}>{(spouseName ? 2 : 1) + sons.length + i}</td>
-                        <td style={{ border: '1px solid #334155', padding: '5pt 6pt', fontWeight: 600 }}>{daughter.name || `દીકરી #${i + 1}`}</td>
-                        <td style={{ border: '1px solid #334155', padding: '5pt 6pt', textAlign: 'center' }}>દીકરી</td>
-                        <td style={{ border: '1px solid #334155', padding: '5pt 4pt', textAlign: 'center' }}>{daughter.age} {daughter.age ? 'વર્ષ' : '-'}</td>
-                        <td style={{ border: '1px solid #334155', padding: '5pt 6pt', textAlign: 'center' }}>{daughter.maritalStatus}</td>
-                      </tr>
+                      <div 
+                        key={daughter.id} 
+                        className="tree-heir-node daughter-node"
+                      >
+                        <div style={{ fontWeight: 700, color: '#1e293b' }}>
+                          {daughter.name || `દીકરી #${i + 1}`}
+                        </div>
+                        <div style={{ fontSize: '8pt', color: '#64748b' }}>
+                          દીકરી {daughter.age ? `(ઉં. ${daughter.age})` : ''}
+                        </div>
+                        <div style={{ fontSize: '7.5pt', fontWeight: 600, color: '#b45309', marginTop: '2pt' }}>
+                          [{daughter.maritalStatus}]
+                        </div>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ================= HEIRS TABLE ================= */}
+              {showTable && (
+                <div style={{ margin: '14pt 0' }}>
+                  <div style={{ fontWeight: 700, fontSize: '11pt', marginBottom: '4pt', textAlign: 'center', color: '#1e293b' }}>
+                    કાયદેસરના વારસદારોની વિગત દર્શાવતી તાલિકા:
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10.5pt', border: '1px solid #334155' }}>
+                    <thead>
+                      <tr style={{ background: '#f1f5f9', borderBottom: '1.5px solid #334155' }}>
+                        <th style={{ border: '1px solid #334155', padding: '6pt 4pt', width: '35px', textAlign: 'center' }}>ક્રમ</th>
+                        <th style={{ border: '1px solid #334155', padding: '6pt 6pt', textAlign: 'left' }}>વારસદારનું પૂરું નામ</th>
+                        <th style={{ border: '1px solid #334155', padding: '6pt 6pt', width: '120px', textAlign: 'center' }}>સ્વર્ગસ્થ સાથે સંબંધ</th>
+                        <th style={{ border: '1px solid #334155', padding: '6pt 4pt', width: '60px', textAlign: 'center' }}>ઉંમર</th>
+                        <th style={{ border: '1px solid #334155', padding: '6pt 6pt', width: '100px', textAlign: 'center' }}>હાલની સ્થિતિ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {/* Spouse */}
+                      {spouseName && (
+                        <tr>
+                          <td style={{ border: '1px solid #334155', padding: '5pt 4pt', textAlign: 'center' }}>૧</td>
+                          <td style={{ border: '1px solid #334155', padding: '5pt 6pt', fontWeight: 600 }}>{spouseName}</td>
+                          <td style={{ border: '1px solid #334155', padding: '5pt 6pt', textAlign: 'center' }}>વિધવા પત્ની</td>
+                          <td style={{ border: '1px solid #334155', padding: '5pt 4pt', textAlign: 'center' }}>{spouseAge} વર્ષ</td>
+                          <td style={{ border: '1px solid #334155', padding: '5pt 6pt', textAlign: 'center' }}>{spouseStatus}</td>
+                        </tr>
+                      )}
+
+                      {/* Sons */}
+                      {sons.map((son, i) => (
+                        <tr key={son.id}>
+                          <td style={{ border: '1px solid #334155', padding: '5pt 4pt', textAlign: 'center' }}>{(spouseName ? 2 : 1) + i}</td>
+                          <td style={{ border: '1px solid #334155', padding: '5pt 6pt' }}>
+                            <span style={{ fontWeight: 600 }}>{son.name || `પુત્ર #${i + 1}`}</span>
+                            {son.subHeirs && (
+                              <div style={{ fontSize: '9pt', color: '#475569', marginTop: '2pt' }}>
+                                ↳ શાખા વારસદારો: {son.subHeirs}
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ border: '1px solid #334155', padding: '5pt 6pt', textAlign: 'center' }}>દીકરો</td>
+                          <td style={{ border: '1px solid #334155', padding: '5pt 4pt', textAlign: 'center' }}>{son.age} {son.age ? 'વર્ષ' : '-'}</td>
+                          <td style={{ border: '1px solid #334155', padding: '5pt 6pt', textAlign: 'center', color: son.status === 'મરણ ગયેલ' ? '#b91c1c' : '#047857', fontWeight: 600 }}>
+                            {son.status}
+                          </td>
+                        </tr>
+                      ))}
+
+                      {/* Daughters */}
+                      {daughters.map((daughter, i) => (
+                        <tr key={daughter.id}>
+                          <td style={{ border: '1px solid #334155', padding: '5pt 4pt', textAlign: 'center' }}>{(spouseName ? 2 : 1) + sons.length + i}</td>
+                          <td style={{ border: '1px solid #334155', padding: '5pt 6pt', fontWeight: 600 }}>{daughter.name || `દીકરી #${i + 1}`}</td>
+                          <td style={{ border: '1px solid #334155', padding: '5pt 6pt', textAlign: 'center' }}>દીકરી</td>
+                          <td style={{ border: '1px solid #334155', padding: '5pt 4pt', textAlign: 'center' }}>{daughter.age} {daughter.age ? 'વર્ષ' : '-'}</td>
+                          <td style={{ border: '1px solid #334155', padding: '5pt 6pt', textAlign: 'center' }}>{daughter.maritalStatus}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
 
               {/* Declarations */}
               <div style={{ marginBottom: '14pt' }}>

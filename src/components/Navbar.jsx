@@ -14,6 +14,7 @@ import {
 export default function Navbar({ 
   activeTab, 
   setActiveTab, 
+  onOpenPedhinamu, 
   recordsCount, 
   templatesCount,
   onOpenSettings,
@@ -42,15 +43,6 @@ export default function Navbar({
         >
           <Sparkles size={16} />
           <span>દસ્તાવેજ બનાવો (Studio)</span>
-        </button>
-
-        <button 
-          className={`nav-tab-btn ${activeTab === 'pedhinamu' ? 'active' : ''}`}
-          onClick={() => setActiveTab('pedhinamu')}
-          title="વારસાઈ પેઢીનામું / ફેમિલી ટ્રી ઓટો-જનરેટર"
-        >
-          <GitBranch size={16} style={{ color: activeTab === 'pedhinamu' ? 'var(--primary)' : 'var(--accent-gold-dark)' }} />
-          <span>વારસાઈ પેઢીનામું</span>
         </button>
 
         <button 

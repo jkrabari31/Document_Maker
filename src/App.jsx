@@ -4,7 +4,6 @@ import DocumentStudio from './components/DocumentStudio';
 import TemplateLibrary from './components/TemplateLibrary';
 import TemplateDesigner from './components/TemplateDesigner';
 import ClientRecords from './components/ClientRecords';
-import PedhinamuMaker from './components/PedhinamuMaker';
 import StampGuideModal from './components/StampGuideModal';
 import AdvocateSettingsModal from './components/AdvocateSettingsModal';
 import { initialTemplates } from './data/initialTemplates';
@@ -36,6 +35,12 @@ export default function App() {
   }, [templates]);
 
   // Handlers for switching views and managing data
+  const handleOpenPedhinamu = () => {
+    const pedTpl = templates.find(t => t.id === 'pedigree-heir-affidavit') || initialTemplates.find(t => t.id === 'pedigree-heir-affidavit') || templates[0];
+    setCurrentTemplate(pedTpl);
+    setActiveTab('studio');
+  };
+
   const handleSelectTemplate = (template) => {
     setCurrentTemplate(template);
     setActiveTab('studio');
@@ -194,12 +199,6 @@ export default function App() {
             onOpenTemplateLibrary={() => setActiveTab('templates')}
             userSettings={userSettings}
             onRecordSaved={handleRecordSaved}
-          />
-        )}
-
-        {activeTab === 'pedhinamu' && (
-          <PedhinamuMaker 
-            userSettings={userSettings}
           />
         )}
 

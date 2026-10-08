@@ -292,6 +292,7 @@ export function transliterateSentence(text) {
 }
 
 /**
+/**
  * Input KeyDown / Input Handler for React input/textarea
  * Automatically transliterates the last word when pressing Space, Enter or Tab
  */
@@ -304,11 +305,16 @@ export function handlePhoneticKeyDown(e, isEnabled, onTextChange) {
     return { togglePhonetic: true };
   }
 
+  const input = e.target;
+  // If not a standard input or textarea (e.g., contentEditable div), don't interfere with keydown
+  if (!input || typeof input.selectionStart !== 'number') {
+    return;
+  }
+
   if (e.key === ' ' || e.key === 'Enter' || e.key === ',' || e.key === '.') {
-    const input = e.target;
     const start = input.selectionStart;
     const end = input.selectionEnd;
-    const val = input.value;
+    const val = input.value || '';
 
     if (start === end && start > 0) {
       // Find the word preceding the cursor
@@ -324,6 +330,7 @@ export function handlePhoneticKeyDown(e, isEnabled, onTextChange) {
           const wordStart = start - englishWord.length;
           const charToAdd = e.key === 'Enter' ? '\n' : e.key;
           const newVal = val.substring(0, wordStart) + gujaratiWord + charToAdd + val.substring(end);
+          const newCursorPos = wordStart + gujaratiWord.length + charToAdd.length;
           
           if (onTextChange) {
             onTextChange(newVal);
@@ -331,16 +338,19 @@ export function handlePhoneticKeyDown(e, isEnabled, onTextChange) {
             input.value = newVal;
           }
 
-          // Restore cursor position
-          const newCursorPos = wordStart + gujaratiWord.length + charToAdd.length;
-          setTimeout(() => {
-            if (input.setSelectionRange) {
+          // Restore cursor position reliably across renders
+          const applySelection = () => {
+            if (input && typeof input.setSelectionRange === 'function') {
               input.setSelectionRange(newCursorPos, newCursorPos);
             }
-          }, 0);
+          };
+          applySelection();
+          requestAnimationFrame(applySelection);
+          setTimeout(applySelection, 10);
           return;
         }
       }
     }
   }
 }
+

@@ -36,19 +36,44 @@ export function renderDocument(content, values = {}, highlightEmpty = false) {
     return `[ ${key.replace(/_/g, " ")} ]`;
   });
 
-  // Convert Header tags into formatted legal header box
-  rendered = rendered.replace(
-    /::HEADER_START::([\s\S]*?)::HEADER_END::/g,
-    '<div class="doc-header-box">$1</div>'
-  );
+  // Extract header box
+  let headerHtml = "";
+  rendered = rendered.replace(/::HEADER_START::([\s\S]*?)::HEADER_END::/g, (m, headerContent) => {
+    headerHtml = `<div class="doc-header-box">${headerContent.trim().replace(/\n/g, '<br/>')}</div>`;
+    return "\n\n___DOC_HEADER_PLACEHOLDER___\n\n";
+  });
 
-  // Convert Verification Block into formatted legal verification box
-  rendered = rendered.replace(
-    /::VERIFICATION_BLOCK::([\s\S]*)/g,
-    '<div class="doc-verification-box"><div style="font-weight:700; margin-bottom: 8pt; border-bottom: 1px dashed #94a3b8; padding-bottom: 4pt; color: #1e293b;">⚖️ સત્યતા અને નોટરી ખરાઈ (LEGAL VERIFICATION & NOTARIZATION)</div>$1</div>'
-  );
+  // Extract verification box
+  let verificationHtml = "";
+  rendered = rendered.replace(/::VERIFICATION_BLOCK::([\s\S]*)/g, (m, verifContent) => {
+    verificationHtml = `<div class="doc-verification-box"><div style="font-weight:700; margin-bottom: 6pt; border-bottom: 1px dashed #94a3b8; padding-bottom: 3pt; color: #1e293b;">⚖️ સત્યતા અને નોટરી ખરાઈ (LEGAL VERIFICATION & NOTARIZATION)</div>${verifContent.trim().replace(/\n/g, '<br/>')}</div>`;
+    return "\n\n___DOC_VERIFICATION_PLACEHOLDER___\n\n";
+  });
 
-  return rendered;
+  // Split into clean paragraphs by double newlines (\n\n)
+  const paragraphs = rendered.split(/\n\n+/g);
+  let bodyHtml = paragraphs.map(p => {
+    const trimmed = p.trim();
+    if (!trimmed) return "";
+    if (trimmed === "___DOC_HEADER_PLACEHOLDER___") return headerHtml;
+    if (trimmed === "___DOC_VERIFICATION_PLACEHOLDER___") return verificationHtml;
+    if (trimmed.includes("---PAGE_BREAK---") || trimmed.includes("::PAGE_BREAK::")) {
+      return trimmed;
+    }
+    if (trimmed.startsWith("<div") || trimmed.startsWith("<table") || trimmed.startsWith("<p")) {
+      return trimmed;
+    }
+    return `<p class="doc-para">${trimmed.replace(/\n/g, '<br/>')}</p>`;
+  }).filter(Boolean).join('\n');
+
+  if (headerHtml && !bodyHtml.includes(headerHtml)) {
+    bodyHtml = headerHtml + '\n' + bodyHtml;
+  }
+  if (verificationHtml && !bodyHtml.includes(verificationHtml)) {
+    bodyHtml = bodyHtml + '\n' + verificationHtml;
+  }
+
+  return bodyHtml;
 }
 
 /**
@@ -66,6 +91,9 @@ export function cleanDocumentForExport(renderedText) {
  * Export rendered document to Microsoft Word (.doc) format with Gujarati UTF-8 support
  */
 export function exportToWord(filename, documentTitle, htmlContent) {
+  const wordContent = (htmlContent || '')
+    .replace(/---PAGE_BREAK---|::PAGE_BREAK::/g, '<br clear="all" style="page-break-before:always; mso-break-type:section-break;" />');
+
   const header = `<!DOCTYPE html>
 <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
 <head>
@@ -96,7 +124,7 @@ export function exportToWord(filename, documentTitle, htmlContent) {
 </style>
 </head>
 <body>
-${htmlContent}
+${wordContent}
 </body>
 </html>`;
 
@@ -245,8 +273,13 @@ export function loadPageSetup() {
       paperSize: "A4",
       paperWidthMm: 210,
       paperHeightMm: 297,
-      lineHeight: 1.7,
-      paragraphSpacing: 16,
+      lineHeight: 1.8,
+      fontSizePt: 13,
+      paragraphSpacing: 14,
+      marginTopMm: 25,
+      marginBottomMm: 25,
+      marginLeftMm: 28,
+      marginRightMm: 20,
       marginTop: 25,
       marginBottom: 25,
       marginLeft: 28,
@@ -254,14 +287,37 @@ export function loadPageSetup() {
       showPageNumbers: true,
       viewMode: "pages" // 'pages' (Real Multi-Sheet) | 'continuous'
     };
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    return {
+      paperSize: parsed.paperSize || "A4",
+      paperWidthMm: parsed.paperWidthMm || 210,
+      paperHeightMm: parsed.paperHeightMm || 297,
+      lineHeight: parsed.lineHeight || 1.8,
+      fontSizePt: parsed.fontSizePt || 13,
+      paragraphSpacing: parsed.paragraphSpacing || 14,
+      marginTopMm: parsed.marginTopMm || parsed.marginTop || 25,
+      marginBottomMm: parsed.marginBottomMm || parsed.marginBottom || 25,
+      marginLeftMm: parsed.marginLeftMm || parsed.marginLeft || 28,
+      marginRightMm: parsed.marginRightMm || parsed.marginRight || 20,
+      marginTop: parsed.marginTopMm || parsed.marginTop || 25,
+      marginBottom: parsed.marginBottomMm || parsed.marginBottom || 25,
+      marginLeft: parsed.marginLeftMm || parsed.marginLeft || 28,
+      marginRight: parsed.marginRightMm || parsed.marginRight || 20,
+      showPageNumbers: parsed.showPageNumbers ?? true,
+      viewMode: parsed.viewMode || "pages"
+    };
   } catch (e) {
     return {
       paperSize: "A4",
       paperWidthMm: 210,
       paperHeightMm: 297,
-      lineHeight: 1.7,
-      paragraphSpacing: 16,
+      lineHeight: 1.8,
+      fontSizePt: 13,
+      paragraphSpacing: 14,
+      marginTopMm: 25,
+      marginBottomMm: 25,
+      marginLeftMm: 28,
+      marginRightMm: 20,
       marginTop: 25,
       marginBottom: 25,
       marginLeft: 28,
@@ -274,7 +330,25 @@ export function loadPageSetup() {
 
 export function savePageSetup(setup) {
   try {
-    localStorage.setItem(STORAGE_KEY_PAGE_SETUP, JSON.stringify(setup));
+    const standardized = {
+      paperSize: setup.paperSize || "A4",
+      paperWidthMm: setup.paperWidthMm || 210,
+      paperHeightMm: setup.paperHeightMm || 297,
+      lineHeight: Number(setup.lineHeight) || 1.8,
+      fontSizePt: Number(setup.fontSizePt) || 13,
+      paragraphSpacing: Number(setup.paragraphSpacing) || 14,
+      marginTopMm: Number(setup.marginTopMm ?? setup.marginTop ?? 25),
+      marginBottomMm: Number(setup.marginBottomMm ?? setup.marginBottom ?? 25),
+      marginLeftMm: Number(setup.marginLeftMm ?? setup.marginLeft ?? 28),
+      marginRightMm: Number(setup.marginRightMm ?? setup.marginRight ?? 20),
+      marginTop: Number(setup.marginTopMm ?? setup.marginTop ?? 25),
+      marginBottom: Number(setup.marginBottomMm ?? setup.marginBottom ?? 25),
+      marginLeft: Number(setup.marginLeftMm ?? setup.marginLeft ?? 28),
+      marginRight: Number(setup.marginRightMm ?? setup.marginRight ?? 20),
+      showPageNumbers: setup.showPageNumbers ?? true,
+      viewMode: setup.viewMode || "pages"
+    };
+    localStorage.setItem(STORAGE_KEY_PAGE_SETUP, JSON.stringify(standardized));
     return true;
   } catch (e) {
     return false;
@@ -287,10 +361,15 @@ export function savePageSetup(setup) {
 export function splitContentIntoPages(renderedHtml) {
   if (!renderedHtml) return [""];
 
-  // 1. Explicit user page breaks
-  if (renderedHtml.includes("---PAGE_BREAK---") || renderedHtml.includes("::PAGE_BREAK::")) {
-    const rawParts = renderedHtml.split(/---PAGE_BREAK---|::PAGE_BREAK::/g);
-    return rawParts.map(p => p.trim()).filter(Boolean);
+  // 1. Explicit user page breaks (text marker or HTML marker)
+  if (
+    renderedHtml.includes("---PAGE_BREAK---") || 
+    renderedHtml.includes("::PAGE_BREAK::") ||
+    renderedHtml.includes("page-break-marker")
+  ) {
+    const rawParts = renderedHtml.split(/---PAGE_BREAK---|::PAGE_BREAK::|<div[^>]*class=["'][^"']*page-break-marker[^"']*["'][^>]*>.*?<\/div>/gi);
+    const cleaned = rawParts.map(p => p.trim()).filter(Boolean);
+    if (cleaned.length > 0) return cleaned;
   }
 
   // 2. If it contains verification box and is a multi-page document
@@ -308,10 +387,34 @@ export function splitContentIntoPages(renderedHtml) {
 }
 
 export const LEGAL_FONTS = [
-  { id: "serif", name: "Noto Serif Gujarati", label: "નોટો સેરીફ (અસલ શાહી કોર્ટ લુક)", family: "'Noto Serif Gujarati', serif" },
-  { id: "sans", name: "Noto Sans Gujarati", label: "નોટો સાન્સ (આધુનિક & ક્રિસ્પ)", family: "'Noto Sans Gujarati', sans-serif" },
-  { id: "rasa", name: "Rasa Gujarati", label: "રાસા (એલિગન્ટ ડીડ સેરીફ)", family: "'Rasa', serif" },
-  { id: "mukta", name: "Mukta Vaani", label: "મુક્તા વાણી (સ્પષ્ટ બોલ્ડ)", family: "'Mukta Vaani', sans-serif" }
+  { 
+    id: "serif", 
+    name: "Noto Serif Gujarati", 
+    label: "નોટો સેરીફ (અસલ શાહી કોર્ટ લુક)", 
+    family: "'Noto Serif Gujarati', 'Times New Roman', serif",
+    fontFamily: "'Noto Serif Gujarati', 'Times New Roman', serif" 
+  },
+  { 
+    id: "sans", 
+    name: "Noto Sans Gujarati", 
+    label: "નોટો સાન્સ (આધુનિક & ક્રિસ્પ)", 
+    family: "'Noto Sans Gujarati', 'Shruti', sans-serif",
+    fontFamily: "'Noto Sans Gujarati', 'Shruti', sans-serif" 
+  },
+  { 
+    id: "rasa", 
+    name: "Rasa Gujarati", 
+    label: "રાસા (એલિગન્ટ ડીડ સેરીફ)", 
+    family: "'Rasa', 'Noto Serif Gujarati', serif",
+    fontFamily: "'Rasa', 'Noto Serif Gujarati', serif" 
+  },
+  { 
+    id: "mukta", 
+    name: "Mukta Vaani", 
+    label: "મુક્તા વાણી (સ્પષ્ટ બોલ્ડ)", 
+    family: "'Mukta Vaani', 'Noto Sans Gujarati', sans-serif",
+    fontFamily: "'Mukta Vaani', 'Noto Sans Gujarati', sans-serif" 
+  }
 ];
 
 const ONES_GUJ = [

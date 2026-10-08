@@ -25,43 +25,71 @@ export const PAPER_SIZES = {
 export default function PageSetupModal({ 
   isOpen, 
   onClose, 
-  pageSetup, 
+  pageSetup = {}, 
+  onSave,
   onSavePageSetup 
 }) {
   if (!isOpen) return null;
 
   const [paperSize, setPaperSize] = React.useState(pageSetup.paperSize || 'A4');
-  const [lineHeight, setLineHeight] = React.useState(pageSetup.lineHeight || 1.7);
-  const [paragraphSpacing, setParagraphSpacing] = React.useState(pageSetup.paragraphSpacing || 16);
-  const [marginTop, setMarginTop] = React.useState(pageSetup.marginTop || 25);
-  const [marginBottom, setMarginBottom] = React.useState(pageSetup.marginBottom || 25);
-  const [marginLeft, setMarginLeft] = React.useState(pageSetup.marginLeft || 28);
-  const [marginRight, setMarginRight] = React.useState(pageSetup.marginRight || 20);
+  const [lineHeight, setLineHeight] = React.useState(pageSetup.lineHeight || 1.8);
+  const [fontSizePt, setFontSizePt] = React.useState(pageSetup.fontSizePt || 13);
+  const [paragraphSpacing, setParagraphSpacing] = React.useState(pageSetup.paragraphSpacing || 14);
+  const [marginTop, setMarginTop] = React.useState(pageSetup.marginTopMm ?? pageSetup.marginTop ?? 25);
+  const [marginBottom, setMarginBottom] = React.useState(pageSetup.marginBottomMm ?? pageSetup.marginBottom ?? 25);
+  const [marginLeft, setMarginLeft] = React.useState(pageSetup.marginLeftMm ?? pageSetup.marginLeft ?? 28);
+  const [marginRight, setMarginRight] = React.useState(pageSetup.marginRightMm ?? pageSetup.marginRight ?? 20);
   const [showPageNumbers, setShowPageNumbers] = React.useState(pageSetup.showPageNumbers ?? true);
-  const [viewMode, setViewMode] = React.useState(pageSetup.viewMode || 'pages'); // 'pages' | 'continuous'
+  const [viewMode, setViewMode] = React.useState(pageSetup.viewMode || 'pages');
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setPaperSize(pageSetup.paperSize || 'A4');
+      setLineHeight(pageSetup.lineHeight || 1.8);
+      setFontSizePt(pageSetup.fontSizePt || 13);
+      setParagraphSpacing(pageSetup.paragraphSpacing || 14);
+      setMarginTop(pageSetup.marginTopMm ?? pageSetup.marginTop ?? 25);
+      setMarginBottom(pageSetup.marginBottomMm ?? pageSetup.marginBottom ?? 25);
+      setMarginLeft(pageSetup.marginLeftMm ?? pageSetup.marginLeft ?? 28);
+      setMarginRight(pageSetup.marginRightMm ?? pageSetup.marginRight ?? 20);
+      setShowPageNumbers(pageSetup.showPageNumbers ?? true);
+      setViewMode(pageSetup.viewMode || 'pages');
+    }
+  }, [isOpen, pageSetup]);
 
   const handleApply = () => {
+    const paper = PAPER_SIZES[paperSize] || PAPER_SIZES.A4;
     const updated = {
       paperSize,
-      paperWidthMm: PAPER_SIZES[paperSize].widthMm,
-      paperHeightMm: PAPER_SIZES[paperSize].heightMm,
-      lineHeight: Number(lineHeight),
-      paragraphSpacing: Number(paragraphSpacing),
-      marginTop: Number(marginTop),
-      marginBottom: Number(marginBottom),
-      marginLeft: Number(marginLeft),
-      marginRight: Number(marginRight),
+      paperWidthMm: paper.widthMm || 210,
+      paperHeightMm: paper.heightMm || 297,
+      lineHeight: Number(lineHeight) || 1.8,
+      fontSizePt: Number(fontSizePt) || 13,
+      paragraphSpacing: Number(paragraphSpacing) || 14,
+      marginTopMm: Number(marginTop) || 25,
+      marginBottomMm: Number(marginBottom) || 25,
+      marginLeftMm: Number(marginLeft) || 28,
+      marginRightMm: Number(marginRight) || 20,
+      marginTop: Number(marginTop) || 25,
+      marginBottom: Number(marginBottom) || 25,
+      marginLeft: Number(marginLeft) || 28,
+      marginRight: Number(marginRight) || 20,
       showPageNumbers,
       viewMode
     };
-    onSavePageSetup(updated);
+    if (typeof onSavePageSetup === 'function') {
+      onSavePageSetup(updated);
+    } else if (typeof onSave === 'function') {
+      onSave(updated);
+    }
     onClose();
   };
 
   const handleResetDefaults = () => {
     setPaperSize('A4');
-    setLineHeight(1.7);
-    setParagraphSpacing(16);
+    setLineHeight(1.8);
+    setFontSizePt(13);
+    setParagraphSpacing(14);
     setMarginTop(25);
     setMarginBottom(25);
     setMarginLeft(28);

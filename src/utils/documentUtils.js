@@ -285,6 +285,9 @@ export function loadPageSetup() {
       marginLeft: 28,
       marginRight: 20,
       showPageNumbers: true,
+      showVerificationQR: true,
+      showWatermark: false,
+      watermarkText: "કાચો મુસદ્દો / DRAFT",
       viewMode: "pages" // 'pages' (Real Multi-Sheet) | 'continuous'
     };
     const parsed = JSON.parse(raw);
@@ -304,6 +307,9 @@ export function loadPageSetup() {
       marginLeft: parsed.marginLeftMm || parsed.marginLeft || 28,
       marginRight: parsed.marginRightMm || parsed.marginRight || 20,
       showPageNumbers: parsed.showPageNumbers ?? true,
+      showVerificationQR: parsed.showVerificationQR ?? true,
+      showWatermark: parsed.showWatermark ?? false,
+      watermarkText: parsed.watermarkText || "કાચો મુસદ્દો / DRAFT",
       viewMode: parsed.viewMode || "pages"
     };
   } catch (e) {
@@ -323,6 +329,9 @@ export function loadPageSetup() {
       marginLeft: 28,
       marginRight: 20,
       showPageNumbers: true,
+      showVerificationQR: true,
+      showWatermark: false,
+      watermarkText: "કાચો મુસદ્દો / DRAFT",
       viewMode: "pages"
     };
   }
@@ -346,6 +355,9 @@ export function savePageSetup(setup) {
       marginLeft: Number(setup.marginLeftMm ?? setup.marginLeft ?? 28),
       marginRight: Number(setup.marginRightMm ?? setup.marginRight ?? 20),
       showPageNumbers: setup.showPageNumbers ?? true,
+      showVerificationQR: setup.showVerificationQR ?? true,
+      showWatermark: setup.showWatermark ?? false,
+      watermarkText: setup.watermarkText || "કાચો મુસદ્દો / DRAFT",
       viewMode: setup.viewMode || "pages"
     };
     localStorage.setItem(STORAGE_KEY_PAGE_SETUP, JSON.stringify(standardized));

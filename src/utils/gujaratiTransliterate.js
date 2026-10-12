@@ -292,9 +292,8 @@ export function transliterateSentence(text) {
 }
 
 /**
-/**
- * Input KeyDown / Input Handler for React input/textarea
- * Automatically transliterates the last word when pressing Space, Enter or Tab
+ * Input KeyDown / Input Handler for React input/textarea and contentEditable elements
+ * Automatically transliterates the last word when pressing Space, Enter, Tab or Punctuation
  */
 export function handlePhoneticKeyDown(e, isEnabled, onTextChange) {
   if (!isEnabled) return;
@@ -305,13 +304,21 @@ export function handlePhoneticKeyDown(e, isEnabled, onTextChange) {
     return { togglePhonetic: true };
   }
 
-  const input = e.target;
-  // If not a standard input or textarea (e.g., contentEditable div), don't interfere with keydown
-  if (!input || typeof input.selectionStart !== 'number') {
+  // Do not transliterate if command keys (Ctrl/Alt/Meta) are active (e.g., Ctrl+B, Ctrl+Z, Ctrl+C)
+  if (e.ctrlKey || e.altKey || e.metaKey) {
     return;
   }
 
-  if (e.key === ' ' || e.key === 'Enter' || e.key === ',' || e.key === '.') {
+  const input = e.target;
+  if (!input) return;
+
+  const isTriggerKey = e.key === ' ' || e.key === 'Enter' || e.key === ',' || e.key === '.' || e.key === '?' || e.key === '!' || e.key === ';' || e.key === ':' || e.key === 'Tab';
+  if (!isTriggerKey) {
+    return;
+  }
+
+  // Case 1: Standard <input> or <textarea>
+  if (typeof input.selectionStart === 'number') {
     const start = input.selectionStart;
     const end = input.selectionEnd;
     const val = input.value || '';
@@ -328,7 +335,7 @@ export function handlePhoneticKeyDown(e, isEnabled, onTextChange) {
         if (gujaratiWord !== englishWord) {
           e.preventDefault();
           const wordStart = start - englishWord.length;
-          const charToAdd = e.key === 'Enter' ? '\n' : e.key;
+          const charToAdd = e.key === 'Enter' ? '\n' : (e.key === 'Tab' ? '\t' : e.key);
           const newVal = val.substring(0, wordStart) + gujaratiWord + charToAdd + val.substring(end);
           const newCursorPos = wordStart + gujaratiWord.length + charToAdd.length;
           
@@ -350,6 +357,117 @@ export function handlePhoneticKeyDown(e, isEnabled, onTextChange) {
           return;
         }
       }
+    }
+    return;
+  }
+
+  // Case 2: ContentEditable elements (Direct on-paper editing in Document Studio)
+  const isEditable = input.isContentEditable || 
+                     input.getAttribute?.('contenteditable') === 'true' || 
+                     (input.closest && input.closest('[contenteditable="true"]'));
+
+  if (isEditable) {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || !sel.isCollapsed) {
+      return;
+    }
+
+    const range = sel.getRangeAt(0);
+    let textNode = range.startContainer;
+    let offset = range.startOffset;
+
+    // If cursor is at an element node, look at previous text node child
+    if (textNode.nodeType === Node.ELEMENT_NODE) {
+      if (offset > 0 && textNode.childNodes.length >= offset) {
+        const prevChild = textNode.childNodes[offset - 1];
+        if (prevChild && prevChild.nodeType === Node.TEXT_NODE) {
+          textNode = prevChild;
+          offset = prevChild.textContent.length;
+        } else {
+          return;
+        }
+      } else {
+        return;
+      }
+    }
+
+    if (textNode.nodeType !== Node.TEXT_NODE) {
+      return;
+    }
+
+    const textContent = textNode.textContent || '';
+    const textBeforeCursor = textContent.substring(0, offset);
+    const match = textBeforeCursor.match(/([a-zA-Z]+)$/);
+
+    if (!match) {
+      return;
+    }
+
+    const englishWord = match[1];
+    const gujaratiWord = transliterateWord(englishWord);
+
+    if (!gujaratiWord || gujaratiWord === englishWord) {
+      return;
+    }
+
+    e.preventDefault();
+
+    const wordStart = offset - englishWord.length;
+    const wordRange = document.createRange();
+    wordRange.setStart(textNode, wordStart);
+    wordRange.setEnd(textNode, offset);
+
+    sel.removeAllRanges();
+    sel.addRange(wordRange);
+
+    if (e.key === 'Enter') {
+      let inserted = false;
+      try {
+        inserted = document.execCommand('insertText', false, gujaratiWord);
+      } catch (err) {}
+
+      if (!inserted) {
+        wordRange.deleteContents();
+        const gText = document.createTextNode(gujaratiWord);
+        wordRange.insertNode(gText);
+        const afterRange = document.createRange();
+        afterRange.setStartAfter(gText);
+        afterRange.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(afterRange);
+      }
+
+      // Execute paragraph break for Enter key
+      try {
+        document.execCommand('insertParagraph', false, null);
+      } catch (err) {
+        try {
+          document.execCommand('insertLineBreak', false, null);
+        } catch (e2) {}
+      }
+    } else {
+      const separator = e.key === 'Tab' ? '    ' : e.key;
+      const fullReplacement = gujaratiWord + separator;
+
+      let inserted = false;
+      try {
+        inserted = document.execCommand('insertText', false, fullReplacement);
+      } catch (err) {}
+
+      if (!inserted) {
+        wordRange.deleteContents();
+        const gText = document.createTextNode(fullReplacement);
+        wordRange.insertNode(gText);
+        const afterRange = document.createRange();
+        afterRange.setStartAfter(gText);
+        afterRange.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(afterRange);
+      }
+    }
+
+    if (onTextChange && typeof onTextChange === 'function') {
+      onTextChange();
     }
   }
 }

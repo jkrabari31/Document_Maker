@@ -32,7 +32,10 @@ import {
   Undo2,
   Redo2,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Mic,
+  MicOff,
+  QrCode
 } from 'lucide-react';
 import { 
   extractVariables, 
@@ -48,6 +51,9 @@ import {
 } from '../utils/documentUtils';
 import { handlePhoneticKeyDown, transliterateWord } from '../utils/gujaratiTransliterate';
 import PageSetupModal, { PAPER_SIZES } from './PageSetupModal';
+import GujaratiKeyPaletteModal from './GujaratiKeyPaletteModal';
+import { isSpeechSupported, createSpeechRecognizer } from '../utils/speechRecognition';
+import { generateDocumentQRDataUrl } from '../utils/qrVerification';
 
 /**
  * Generates the authentic Varsaai Pedhinamu HTML with Visual Family Tree and Table
@@ -418,6 +424,216 @@ export default function DocumentStudio({
   const [isDirectEditMode, setIsDirectEditMode] = useState(false);
   const [customDirectHtml, setCustomDirectHtml] = useState(null);
   const [isFullscreenReview, setIsFullscreenReview] = useState(false);
+  const [isKeyPaletteOpen, setIsKeyPaletteOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [interimVoiceText, setInterimVoiceText] = useState('');
+  const speechRecognizerRef = useRef(null);
+  const lastSavedRangeRef = useRef(null);
+  const lastActiveInputRef = useRef(null);
+  const [qrDataUrl, setQrDataUrl] = useState('');
+
+  // Track selection and focus for inserting characters from on-screen palette
+  useEffect(() => {
+    const handleSelectionSave = () => {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        const container = range.commonAncestorContainer;
+        const el = container.nodeType === 1 ? container : container.parentElement;
+        if (el && (el.isContentEditable || el.closest?.('[contenteditable="true"]'))) {
+          lastSavedRangeRef.current = range.cloneRange();
+          lastActiveInputRef.current = null;
+        }
+      }
+    };
+    document.addEventListener('selectionchange', handleSelectionSave);
+    return () => document.removeEventListener('selectionchange', handleSelectionSave);
+  }, []);
+
+  useEffect(() => {
+    const handleFocusTrack = (e) => {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
+        lastActiveInputRef.current = e.target;
+        lastSavedRangeRef.current = null;
+      }
+    };
+    document.addEventListener('focusin', handleFocusTrack);
+    return () => document.removeEventListener('focusin', handleFocusTrack);
+  }, []);
+
+  const handleInsertFromPalette = (char) => {
+    // 1. If in contentEditable (.document-body)
+    if (lastSavedRangeRef.current) {
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(lastSavedRangeRef.current);
+      let ok = false;
+      try {
+        ok = document.execCommand('insertText', false, char);
+      } catch (e) {}
+
+      if (!ok) {
+        const node = document.createTextNode(char);
+        lastSavedRangeRef.current.insertNode(node);
+        const newRange = document.createRange();
+        newRange.setStartAfter(node);
+        newRange.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+        lastSavedRangeRef.current = newRange.cloneRange();
+      } else {
+        if (sel.rangeCount > 0) {
+          lastSavedRangeRef.current = sel.getRangeAt(0).cloneRange();
+        }
+      }
+      return;
+    }
+
+    // 2. If in standard input or textarea
+    if (lastActiveInputRef.current) {
+      const inp = lastActiveInputRef.current;
+      if (typeof inp.selectionStart === 'number') {
+        const start = inp.selectionStart;
+        const end = inp.selectionEnd;
+        const val = inp.value || '';
+        const newVal = val.substring(0, start) + char + val.substring(end);
+        inp.value = newVal;
+        inp.dispatchEvent(new Event('input', { bubbles: true }));
+        inp.setSelectionRange(start + char.length, start + char.length);
+        inp.focus();
+        return;
+      }
+    }
+  };
+
+  // Voice Dictation (Speech-to-Text) Handlers
+  const handleVoiceInsert = (text) => {
+    if (!text) return;
+    const cleanText = text.trim() + ' ';
+
+    // 1. If in contentEditable (.document-body)
+    if (lastSavedRangeRef.current) {
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(lastSavedRangeRef.current);
+      let ok = false;
+      try {
+        ok = document.execCommand('insertText', false, cleanText);
+      } catch (e) {}
+
+      if (!ok) {
+        const node = document.createTextNode(cleanText);
+        lastSavedRangeRef.current.insertNode(node);
+        const newRange = document.createRange();
+        newRange.setStartAfter(node);
+        newRange.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+        lastSavedRangeRef.current = newRange.cloneRange();
+      } else {
+        if (sel.rangeCount > 0) {
+          lastSavedRangeRef.current = sel.getRangeAt(0).cloneRange();
+        }
+      }
+      return;
+    }
+
+    // 2. If in standard input or textarea
+    if (lastActiveInputRef.current) {
+      const inp = lastActiveInputRef.current;
+      if (typeof inp.selectionStart === 'number') {
+        const start = inp.selectionStart;
+        const end = inp.selectionEnd;
+        const val = inp.value || '';
+        const newVal = val.substring(0, start) + cleanText + val.substring(end);
+        inp.value = newVal;
+        inp.dispatchEvent(new Event('input', { bubbles: true }));
+        inp.setSelectionRange(start + cleanText.length, start + cleanText.length);
+        inp.focus();
+        return;
+      }
+    }
+
+    // 3. Fallback: focus first .document-body and insert
+    const docBody = document.querySelector('.document-body');
+    if (docBody) {
+      docBody.focus();
+      try {
+        document.execCommand('insertText', false, cleanText);
+      } catch (e) {}
+    }
+  };
+
+  const stopVoiceTyping = () => {
+    if (speechRecognizerRef.current) {
+      speechRecognizerRef.current.stop();
+      speechRecognizerRef.current = null;
+    }
+    setIsListening(false);
+    setInterimVoiceText('');
+  };
+
+  const startVoiceTyping = () => {
+    if (!isSpeechSupported()) {
+      alert("તમારા બ્રાઉઝરમાં વોઇસ ટાઇપિંગ સપોર્ટ નથી. કૃપા કરીને Google Chrome અથવા Microsoft Edge વાપરો.");
+      return;
+    }
+
+    // Auto-enable direct edit mode if user wasn't in direct edit mode so they can see typing on paper
+    if (!isDirectEditMode && !lastActiveInputRef.current) {
+      setIsDirectEditMode(true);
+    }
+
+    const recognizer = createSpeechRecognizer({
+      lang: 'gu-IN',
+      onResult: (finalText) => {
+        handleVoiceInsert(finalText);
+      },
+      onInterim: (interim) => {
+        setInterimVoiceText(interim);
+      },
+      onError: (err) => {
+        if (err.message) {
+          alert(err.message);
+        }
+        stopVoiceTyping();
+      },
+      onEnd: ({ isExplicitlyStopped }) => {
+        if (!isExplicitlyStopped && isListening) {
+          try {
+            speechRecognizerRef.current?.start();
+          } catch (e) {
+            stopVoiceTyping();
+          }
+        } else {
+          stopVoiceTyping();
+        }
+      }
+    });
+
+    if (recognizer) {
+      speechRecognizerRef.current = recognizer;
+      recognizer.start();
+      setIsListening(true);
+    }
+  };
+
+  const toggleVoiceTyping = () => {
+    if (isListening) {
+      stopVoiceTyping();
+    } else {
+      startVoiceTyping();
+    }
+  };
+
+  // Cleanup speech recognizer on unmount
+  useEffect(() => {
+    return () => {
+      if (speechRecognizerRef.current) {
+        speechRecognizerRef.current.abort();
+      }
+    };
+  }, []);
 
   // Esc key listener to exit full screen review mode
   useEffect(() => {
@@ -442,8 +658,9 @@ export default function DocumentStudio({
 
   const handleUndo = () => {
     // If in direct edit mode and user is actively typing in contentEditable, try native undo first
-    if (isDirectEditMode && document.activeElement && document.activeElement.classList.contains('document-body')) {
+    if (isDirectEditMode && document.activeElement && (document.activeElement.classList.contains('document-body') || document.activeElement.closest?.('.document-body'))) {
       document.execCommand('undo', false, null);
+      return;
     }
 
     if (historyStack.length === 0) return;
@@ -455,8 +672,9 @@ export default function DocumentStudio({
   };
 
   const handleRedo = () => {
-    if (isDirectEditMode && document.activeElement && document.activeElement.classList.contains('document-body')) {
+    if (isDirectEditMode && document.activeElement && (document.activeElement.classList.contains('document-body') || document.activeElement.closest?.('.document-body'))) {
       document.execCommand('redo', false, null);
+      return;
     }
 
     if (redoStack.length === 0) return;
@@ -474,14 +692,16 @@ export default function DocumentStudio({
         e.preventDefault();
         setIsPhoneticActive(prev => !prev);
       } else if (e.ctrlKey && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
+        const isEditable = document.activeElement?.isContentEditable || document.activeElement?.closest?.('.document-body');
         const tag = document.activeElement?.tagName?.toLowerCase();
-        if (tag !== 'input' && tag !== 'textarea') {
+        if (tag !== 'input' && tag !== 'textarea' && !isEditable) {
           e.preventDefault();
           handleUndo();
         }
       } else if (e.ctrlKey && (e.key === 'y' || e.key === 'Y' || (e.shiftKey && (e.key === 'z' || e.key === 'Z')))) {
+        const isEditable = document.activeElement?.isContentEditable || document.activeElement?.closest?.('.document-body');
         const tag = document.activeElement?.tagName?.toLowerCase();
-        if (tag !== 'input' && tag !== 'textarea') {
+        if (tag !== 'input' && tag !== 'textarea' && !isEditable) {
           e.preventDefault();
           handleRedo();
         }
@@ -514,6 +734,45 @@ export default function DocumentStudio({
       setIsPhoneticActive(true);
     }
   }, [currentTemplate, userSettings]);
+
+  // Digital Verification QR Code Generation Effect
+  useEffect(() => {
+    let isMounted = true;
+    const clientName = isPedhinamu 
+      ? applicantName 
+      : (formValues['અરજદારનું_નામ'] || formValues['વેચનારનું_પૂરું_નામ'] || formValues['લખી_આપનાર_નામ'] || formValues['પ્રથમ_પક્ષકાર_નામ'] || formValues['Applicant_Name'] || 'અરજદાર');
+    
+    const docDate = formValues['તારીખ'] || formValues['દસ્તાવેજ_તારીખ'] || formValues['Date'] || new Date().toLocaleDateString('gu-IN');
+    const docPlace = formValues['સ્થળ'] || formValues['ગામ'] || formValues['Place'] || '';
+
+    generateDocumentQRDataUrl({
+      docId: `DM-${(currentTemplate?.id || 'DOC').toUpperCase().slice(0, 8)}-${Date.now().toString(36).toUpperCase()}`,
+      title: currentTemplate?.title || 'કાનૂની દસ્તાવેજ',
+      clientName,
+      date: docDate,
+      place: docPlace,
+      advocateName: userSettings?.advocateName || formValues['નોટરી_એડવોકેટ_નામ'] || formValues['એડવોકેટ_નામ'] || '',
+      barRegNumber: userSettings?.barRegNumber || formValues['બાર_કાઉન્સિલ_નંબર'] || '',
+      officeAddress: userSettings?.officeAddress || formValues['એડવોકેટ_ઓફિસ_સરનામું'] || ''
+    }).then(url => {
+      if (isMounted) {
+        setQrDataUrl(url || '');
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    currentTemplate?.id,
+    currentTemplate?.title,
+    formValues,
+    isPedhinamu,
+    applicantName,
+    userSettings?.advocateName,
+    userSettings?.barRegNumber,
+    userSettings?.officeAddress
+  ]);
 
   // Handle standard input change
   const handleInputChange = (key, value) => {
@@ -1446,6 +1705,50 @@ export default function DocumentStudio({
           </div>
         )}
 
+        {/* Live Gujarati Voice Dictation Bar */}
+        {isListening && (
+          <div className="voice-dictation-live-bar">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+              <div className="mic-pulse-circle">
+                <Mic size={15} />
+              </div>
+              <div>
+                <strong style={{ fontSize: '0.85rem' }}>ગુજરાતી વોઇસ ટાઇપિંગ ચાલુ છે... બોલો!</strong>
+                <div style={{ fontSize: '0.72rem', color: '#c7d2fe' }}>
+                  તમે બોલશો તે આપોઆપ કર્સર પાસે ગુજરાતીમાં લખાશે.
+                </div>
+              </div>
+            </div>
+
+            {interimVoiceText && (
+              <div className="voice-interim-box">
+                🔊 {interimVoiceText}...
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={stopVoiceTyping}
+              style={{
+                background: '#ef4444',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '0.35rem 0.85rem',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem'
+              }}
+            >
+              <MicOff size={13} />
+              <span>માઇક બંધ કરો</span>
+            </button>
+          </div>
+        )}
+
         {/* Preview Toolbar (Two-Tier Structured Layout to Prevent Overlap) */}
         <div className="preview-toolbar">
           
@@ -1461,6 +1764,28 @@ export default function DocumentStudio({
               >
                 <Keyboard size={14} />
                 <span>{isPhoneticActive ? 'ગુજરાતી ટાઇપિંગ: ચાલુ (ON)' : 'English Typing (OFF)'}</span>
+              </button>
+
+              {/* On-Screen Gujarati Character Palette / Keyboard Reference */}
+              <button 
+                type="button"
+                className={`phonetic-toggle-btn ${isKeyPaletteOpen ? 'active' : ''}`}
+                onClick={() => setIsKeyPaletteOpen(!isKeyPaletteOpen)}
+                title="ઓન-સ્ક્રીન ગુજરાતી અક્ષર પેલેટ & કીબોર્ડ ગાઈડ (ક્ષ, જ્ઞ, ત્ર, ૃ, અંકો વગેરે)"
+              >
+                <Sparkles size={14} style={{ color: isKeyPaletteOpen ? '#b45309' : '#d97706' }} />
+                <span>અક્ષર પેલેટ / કીબોર્ડ</span>
+              </button>
+
+              {/* Gujarati Voice Typing (Speech to Text) Button */}
+              <button 
+                type="button"
+                className={`phonetic-toggle-btn voice-dictation-btn ${isListening ? 'listening-active' : ''}`}
+                onClick={toggleVoiceTyping}
+                title={isListening ? "વોઇસ ટાઇપિંગ બંધ કરો (Stop)" : "ગુજરાતી બોલીને લખો (Gujarati Speech to Text) - માઇક્રોફોન વડે બોલો"}
+              >
+                {isListening ? <MicOff size={14} style={{ color: '#ffffff' }} /> : <Mic size={14} style={{ color: '#dc2626' }} />}
+                <span>{isListening ? 'સાંભળે છે... (Stop)' : 'બોલીને લખો (Mic)'}</span>
               </button>
 
               {/* Legal Font Selector */}
@@ -1629,6 +1954,40 @@ export default function DocumentStudio({
                 <span>+ નવું પેજ (Break)</span>
               </button>
 
+              {/* Digital QR Verification Toggle */}
+              <button 
+                type="button"
+                className={`tool-toggle-btn ${pageSetup.showVerificationQR !== false ? 'active' : ''}`}
+                onClick={() => {
+                  const updated = { 
+                    ...pageSetup, 
+                    showVerificationQR: pageSetup.showVerificationQR === false ? true : false 
+                  };
+                  handleSavePageSetup(updated);
+                }}
+                title="દસ્તાવેજના અંતે સત્તાવાર QR કોડ સત્યતા બેજ ચાલુ / બંધ કરો"
+              >
+                <QrCode size={13} />
+                <span>QR વેરિફિકેશન: {pageSetup.showVerificationQR !== false ? 'ચાલુ' : 'બંધ'}</span>
+              </button>
+
+              {/* Watermark 1-Click Quick Toggle */}
+              <button 
+                type="button"
+                className={`tool-toggle-btn ${pageSetup.showWatermark ? 'active' : ''}`}
+                onClick={() => {
+                  const updated = { 
+                    ...pageSetup, 
+                    showWatermark: !pageSetup.showWatermark 
+                  };
+                  handleSavePageSetup(updated);
+                }}
+                title="કાગળ પર ત્રાંસો 'કાચો મુસદ્દો / DRAFT' વોટરમાર્ક ૧-ક્લિકમાં ચાલુ / બંધ કરો"
+              >
+                <Layers size={13} />
+                <span>વોટરમાર્ક: {pageSetup.showWatermark ? 'DRAFT (ચાલુ)' : 'બંધ'}</span>
+              </button>
+
               {/* Pedhinamu Specific Toggles */}
               {isPedhinamu && (
                 <>
@@ -1781,6 +2140,13 @@ export default function DocumentStudio({
                     </div>
                   )}
 
+                  {/* Diagonal Watermark Overlay (Draft / Office Copy) */}
+                  {pageSetup.showWatermark && (
+                    <div className="doc-watermark-overlay no-select">
+                      {pageSetup.watermarkText || 'કાચો મુસદ્દો / DRAFT'}
+                    </div>
+                  )}
+
                   {/* Rendered Live Page Body (Supports Direct On-Paper Editing & Formatting) */}
                   <div 
                     className="document-body"
@@ -1798,11 +2164,36 @@ export default function DocumentStudio({
                         } else if (e.ctrlKey && (e.key === 'u' || e.key === 'U')) {
                           e.preventDefault();
                           handleFormatText('underline');
+                        } else {
+                          handlePhoneticKeyDown(e, isPhoneticActive);
                         }
                       }
                     }}
                     dangerouslySetInnerHTML={{ __html: pageHtml }}
                   />
+
+                  {/* Digital Verification QR Badge (Printed on final page of document or continuous mode) */}
+                  {pageSetup.showVerificationQR !== false && (isContinuous || index === pages.length - 1) && qrDataUrl && (
+                    <div className="doc-qr-verification-badge">
+                      <img src={qrDataUrl} alt="Document Verification QR Code" className="doc-qr-img" />
+                      <div className="doc-qr-details">
+                        <div className="doc-qr-title">
+                          <ShieldCheck size={16} style={{ color: '#059669' }} />
+                          <span>ડિજિટલ સત્યતા & ખરાઈ QR કોડ (Digital Legal Verification)</span>
+                        </div>
+                        <div className="doc-qr-meta">
+                          <div>• <strong>દસ્તાવેજ:</strong> {currentTemplate.title}</div>
+                          <div>• <strong>અસીલ / પક્ષકાર:</strong> {isPedhinamu ? applicantName : (formValues['અરજદારનું_નામ'] || formValues['વેચનારનું_પૂરું_નામ'] || formValues['લખી_આપનાર_નામ'] || formValues['પ્રથમ_પક્ષકાર_નામ'] || formValues['Applicant_Name'] || 'અરજદાર')}</div>
+                          {(userSettings?.advocateName || formValues['એડવોકેટ_નામ'] || formValues['નોટરી_એડવોકેટ_નામ']) && (
+                            <div>• <strong>એડવોકેટ / નોટરી:</strong> {userSettings?.advocateName || formValues['એડવોકેટ_નામ'] || formValues['નોટરી_એડવોકેટ_નામ']} {userSettings?.barRegNumber ? `(${userSettings.barRegNumber})` : ''}</div>
+                          )}
+                          <div className="doc-qr-subhint">
+                            📱 કોઈપણ સ્માર્ટફોન કેમેરા વડે આ QR કોડ સ્કેન કરીને દસ્તાવેજની પ્રમાણિકતા ચકાસી શકાય છે.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Page Footer */}
                   {pageSetup.showPageNumbers !== false && (
@@ -1825,6 +2216,13 @@ export default function DocumentStudio({
           </div>
         </div>
       </main>
+
+      {/* Gujarati On-Screen Character Palette & Keyboard Reference */}
+      <GujaratiKeyPaletteModal
+        isOpen={isKeyPaletteOpen}
+        onClose={() => setIsKeyPaletteOpen(false)}
+        onInsertChar={handleInsertFromPalette}
+      />
 
       {/* Page Setup Configuration Modal */}
       <PageSetupModal 

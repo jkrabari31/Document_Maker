@@ -8,7 +8,8 @@ import {
   UserCheck, 
   Sparkles, 
   Download,
-  GitBranch
+  GitBranch,
+  Calculator
 } from 'lucide-react';
 
 export default function Navbar({ 
@@ -19,6 +20,7 @@ export default function Navbar({
   templatesCount,
   onOpenSettings,
   onOpenStampGuide,
+  onOpenStampCalculator,
   onBackupData
 }) {
   return (
@@ -73,6 +75,21 @@ export default function Navbar({
       </nav>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+        <button 
+          className="tool-toggle-btn"
+          onClick={onOpenStampCalculator}
+          title="ગુજરાત સ્ટેમ્પ ડ્યુટી & જંત્રી કેલ્ક્યુલેટર (Smart Stamp Duty Calculator)"
+          style={{ 
+            color: '#1e3a8a', 
+            borderColor: '#bfdbfe', 
+            background: '#eff6ff',
+            fontWeight: 700 
+          }}
+        >
+          <Calculator size={16} style={{ color: '#2563eb' }} />
+          <span>સ્ટેમ્પ કેલ્ક્યુલેટર</span>
+        </button>
+
         <button 
           className="tool-toggle-btn"
           onClick={onOpenStampGuide}

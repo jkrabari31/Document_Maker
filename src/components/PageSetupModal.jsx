@@ -40,6 +40,9 @@ export default function PageSetupModal({
   const [marginLeft, setMarginLeft] = React.useState(pageSetup.marginLeftMm ?? pageSetup.marginLeft ?? 28);
   const [marginRight, setMarginRight] = React.useState(pageSetup.marginRightMm ?? pageSetup.marginRight ?? 20);
   const [showPageNumbers, setShowPageNumbers] = React.useState(pageSetup.showPageNumbers ?? true);
+  const [showVerificationQR, setShowVerificationQR] = React.useState(pageSetup.showVerificationQR ?? true);
+  const [showWatermark, setShowWatermark] = React.useState(pageSetup.showWatermark ?? false);
+  const [watermarkText, setWatermarkText] = React.useState(pageSetup.watermarkText || 'કાચો મુસદ્દો / DRAFT');
   const [viewMode, setViewMode] = React.useState(pageSetup.viewMode || 'pages');
 
   React.useEffect(() => {
@@ -53,6 +56,9 @@ export default function PageSetupModal({
       setMarginLeft(pageSetup.marginLeftMm ?? pageSetup.marginLeft ?? 28);
       setMarginRight(pageSetup.marginRightMm ?? pageSetup.marginRight ?? 20);
       setShowPageNumbers(pageSetup.showPageNumbers ?? true);
+      setShowVerificationQR(pageSetup.showVerificationQR ?? true);
+      setShowWatermark(pageSetup.showWatermark ?? false);
+      setWatermarkText(pageSetup.watermarkText || 'કાચો મુસદ્દો / DRAFT');
       setViewMode(pageSetup.viewMode || 'pages');
     }
   }, [isOpen, pageSetup]);
@@ -75,6 +81,9 @@ export default function PageSetupModal({
       marginLeft: Number(marginLeft) || 28,
       marginRight: Number(marginRight) || 20,
       showPageNumbers,
+      showVerificationQR,
+      showWatermark,
+      watermarkText: watermarkText.trim() || 'કાચો મુસદ્દો / DRAFT',
       viewMode
     };
     if (typeof onSavePageSetup === 'function') {
@@ -95,6 +104,9 @@ export default function PageSetupModal({
     setMarginLeft(28);
     setMarginRight(20);
     setShowPageNumbers(true);
+    setShowVerificationQR(true);
+    setShowWatermark(false);
+    setWatermarkText('કાચો મુસદ્દો / DRAFT');
     setViewMode('pages');
   };
 
@@ -308,6 +320,77 @@ export default function PageSetupModal({
             <label htmlFor="showPageNumCheck" style={{ fontSize: '0.84rem', color: 'var(--text-main)', cursor: 'pointer' }}>
               દરેક પેજના નીચે પેજ નંબર દર્શાવો (દા.ત. "પેજ ૧ / ૨", "પેજ ૨ / ૨")
             </label>
+          </div>
+
+          {/* Show Verification QR Code */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <input 
+              type="checkbox"
+              id="showVerificationQRCheck"
+              checked={showVerificationQR}
+              onChange={e => setShowVerificationQR(e.target.checked)}
+              style={{ width: '16px', height: '16px', accentColor: 'var(--primary)' }}
+            />
+            <label htmlFor="showVerificationQRCheck" style={{ fontSize: '0.84rem', color: 'var(--text-main)', cursor: 'pointer' }}>
+              દસ્તાવેજના અંતે સત્યતા અને ખરાઈ માટે QR કોડ દર્શાવો (Digital Verification QR Code)
+            </label>
+          </div>
+
+          {/* Watermark Section */}
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.85rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: showWatermark ? '0.65rem' : '0' }}>
+              <input 
+                type="checkbox"
+                id="showWatermarkCheck"
+                checked={showWatermark}
+                onChange={e => setShowWatermark(e.target.checked)}
+                style={{ width: '16px', height: '16px', accentColor: 'var(--primary)' }}
+              />
+              <label htmlFor="showWatermarkCheck" style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-main)', cursor: 'pointer' }}>
+                કાગળ પર વોટરમાર્ક દર્શાવો (Diagonal Watermark Overlay)
+              </label>
+            </div>
+
+            {showWatermark && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.4rem', paddingLeft: '1.6rem' }}>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  {[
+                    'કાચો મુસદ્દો / DRAFT',
+                    'ઓફિસ કોપી / OFFICE COPY',
+                    'ખાનગી / CONFIDENTIAL'
+                  ].map(txt => (
+                    <button
+                      key={txt}
+                      type="button"
+                      onClick={() => setWatermarkText(txt)}
+                      style={{
+                        fontSize: '0.72rem',
+                        padding: '0.2rem 0.55rem',
+                        borderRadius: '12px',
+                        border: watermarkText === txt ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
+                        background: watermarkText === txt ? '#eff6ff' : '#ffffff',
+                        color: watermarkText === txt ? '#1d4ed8' : '#475569',
+                        cursor: 'pointer',
+                        fontWeight: watermarkText === txt ? 700 : 500
+                      }}
+                    >
+                      {txt}
+                    </button>
+                  ))}
+                </div>
+                <input 
+                  type="text"
+                  className="input-control"
+                  style={{ fontSize: '0.84rem', padding: '0.4rem 0.65rem' }}
+                  placeholder="કસ્ટમ વોટરમાર્ક લખાણ દાખલ કરો (દા.ત. ADVOCATE DRAFT)..."
+                  value={watermarkText}
+                  onChange={e => setWatermarkText(e.target.value)}
+                />
+                <span style={{ fontSize: '0.70rem', color: '#64748b' }}>
+                  * અસીલને ડ્રાફ્ટ વાંચવા આપવા માટે કાગળની વચ્ચે આછો ત્રાંસો વોટરમાર્ક પ્રિન્ટ થશે.
+                </span>
+              </div>
+            )}
           </div>
         </div>
 

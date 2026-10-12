@@ -6,6 +6,7 @@ import TemplateDesigner from './components/TemplateDesigner';
 import ClientRecords from './components/ClientRecords';
 import StampGuideModal from './components/StampGuideModal';
 import AdvocateSettingsModal from './components/AdvocateSettingsModal';
+import StampDutyCalculatorModal from './components/StampDutyCalculatorModal';
 import { initialTemplates } from './data/initialTemplates';
 import { 
   loadSavedTemplates, 
@@ -28,6 +29,7 @@ export default function App() {
 
   const [isStampGuideOpen, setIsStampGuideOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isStampCalcOpen, setIsStampCalcOpen] = useState(false);
 
   // Sync templates to storage on change
   useEffect(() => {
@@ -187,6 +189,7 @@ export default function App() {
         templatesCount={templates.length}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenStampGuide={() => setIsStampGuideOpen(true)}
+        onOpenStampCalculator={() => setIsStampCalcOpen(true)}
         onBackupData={handleBackupAllData}
       />
 
@@ -236,6 +239,11 @@ export default function App() {
       <StampGuideModal 
         isOpen={isStampGuideOpen}
         onClose={() => setIsStampGuideOpen(false)}
+      />
+
+      <StampDutyCalculatorModal 
+        isOpen={isStampCalcOpen}
+        onClose={() => setIsStampCalcOpen(false)}
       />
 
       <AdvocateSettingsModal 

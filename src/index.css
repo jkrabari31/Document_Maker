@@ -983,6 +983,61 @@ textarea.input-control {
   border: 1px dashed #ca8a04;
 }
 
+/* Document Digital Verification QR Badge */
+.doc-qr-verification-badge {
+  display: flex;
+  align-items: center;
+  gap: 1.15rem;
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-top: 18pt;
+  margin-bottom: 8pt;
+  box-sizing: border-box;
+  page-break-inside: avoid;
+  break-inside: avoid;
+  user-select: none;
+}
+
+.doc-qr-img {
+  width: 78px;
+  height: 78px;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  padding: 3px;
+  flex-shrink: 0;
+}
+
+.doc-qr-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 8.5pt;
+  color: #334155;
+  line-height: 1.45;
+  font-family: var(--font-main);
+  text-align: left;
+}
+
+.doc-qr-title {
+  font-size: 9.2pt;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-bottom: 1px dashed #cbd5e1;
+  padding-bottom: 2pt;
+  margin-bottom: 2pt;
+}
+
+.doc-qr-meta {
+  font-size: 7.8pt;
+  color: #64748b;
+}
+
 /* Template Library Grid */
 .templates-view {
   max-width: 1400px;
@@ -1515,6 +1570,157 @@ textarea.input-control {
 }
 
 /* =========================================================================
+   GUJARATI VOICE DICTATION (SPEECH-TO-TEXT) STYLES
+   ========================================================================= */
+.voice-dictation-btn {
+  border-color: #fca5a5 !important;
+  color: #b91c1c !important;
+  background: #fef2f2 !important;
+  font-weight: 600 !important;
+}
+
+.voice-dictation-btn:hover {
+  background: #fee2e2 !important;
+  border-color: #ef4444 !important;
+  color: #991b1b !important;
+}
+
+.voice-dictation-btn.listening-active {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border-color: #b91c1c !important;
+  animation: pulseMicBtn 1.5s infinite;
+}
+
+@keyframes pulseMicBtn {
+  0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.45); }
+  70% { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}
+
+.voice-dictation-live-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+  color: #ffffff;
+  padding: 0.5rem 1.25rem;
+  border-bottom: 1px solid #4338ca;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  z-index: 30;
+  animation: slideDown 0.2s ease-out;
+}
+
+.mic-pulse-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #ef4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  animation: pulseMicBtn 1.2s infinite;
+}
+
+.voice-interim-box {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  padding: 0.3rem 0.85rem;
+  font-size: 0.84rem;
+  color: #fef08a;
+  max-width: 520px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* =========================================================================
+   DOCUMENT VERIFICATION QR CODE BADGE
+   ========================================================================= */
+.doc-qr-verification-badge {
+  margin-top: 1.75rem;
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.doc-qr-img {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 4px;
+  flex-shrink: 0;
+}
+
+.doc-qr-details {
+  flex: 1;
+  font-family: inherit;
+  color: #1e293b;
+}
+
+.doc-qr-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #0f172a;
+  padding-bottom: 0.35rem;
+  margin-bottom: 0.35rem;
+  border-bottom: 1px dashed #cbd5e1;
+}
+
+.doc-qr-meta {
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: #475569;
+}
+
+.doc-qr-subhint {
+  font-size: 0.70rem;
+  color: #059669;
+  font-weight: 600;
+  margin-top: 0.25rem;
+}
+
+/* =========================================================================
+   DOCUMENT WATERMARK (DRAFT / OFFICE COPY OVERLAY)
+   ========================================================================= */
+.doc-watermark-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-32deg);
+  font-size: 3.4rem;
+  font-weight: 900;
+  color: rgba(100, 116, 139, 0.14);
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  pointer-events: none;
+  user-select: none;
+  z-index: 10;
+  white-space: nowrap;
+  text-align: center;
+  border: 4px dashed rgba(100, 116, 139, 0.16);
+  padding: 0.8rem 2.5rem;
+  border-radius: 14px;
+  line-height: 1.15;
+  font-family: inherit;
+}
+
+/* =========================================================================
    PRINT ENGINE OPTIMIZATION - CRITICAL FOR ADVOCATES & STAMP PAPER PRINTING
    ========================================================================= */
 @media print {
@@ -1533,6 +1739,7 @@ textarea.input-control {
   .studio-form-panel,
   .preview-toolbar,
   .fullscreen-review-banner,
+  .voice-dictation-live-bar,
   .floating-fullscreen-btn,
   .stamp-notice-banner,
   .stamp-paper-placeholder-zone,
@@ -1597,5 +1804,30 @@ textarea.input-control {
   .doc-verification-box {
     background: transparent !important;
     border: 1px solid #000000 !important;
+  }
+
+  .doc-qr-verification-badge {
+    background: #ffffff !important;
+    border: 1px solid #000000 !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .doc-qr-title {
+    color: #000000 !important;
+    border-bottom: 1px dashed #000000 !important;
+  }
+
+  .doc-qr-details,
+  .doc-qr-meta {
+    color: #000000 !important;
+  }
+
+  .doc-watermark-overlay {
+    display: block !important;
+    color: rgba(0, 0, 0, 0.10) !important;
+    border-color: rgba(0, 0, 0, 0.12) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }

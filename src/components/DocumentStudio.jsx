@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { 
+import {
   Keyboard,
   Type,
   Calculator,
-  Printer, 
-  Download, 
-  Copy, 
-  Check, 
-  RotateCcw, 
-  Save, 
-  Sparkles, 
-  Layers, 
-  Sliders, 
-  Eye, 
+  Printer,
+  Download,
+  Copy,
+  Check,
+  RotateCcw,
+  Save,
+  Sparkles,
+  Layers,
+  Sliders,
+  Eye,
   FileText,
   FolderOpen,
   Settings,
@@ -35,23 +35,27 @@ import {
   Minimize2,
   Mic,
   MicOff,
-  QrCode
+  QrCode,
+  Minus,
+  Layout
 } from 'lucide-react';
-import { 
-  extractVariables, 
-  renderDocument, 
-  cleanDocumentForExport, 
-  exportToWord, 
+import {
+  extractVariables,
+  renderDocument,
+  cleanDocumentForExport,
+  exportToWord,
   saveRecordToStorage,
   loadPageSetup,
   savePageSetup,
   splitContentIntoPages,
   LEGAL_FONTS,
-  numberToGujaratiWords
+  numberToGujaratiWords,
+  formatFooterContent
 } from '../utils/documentUtils';
 import { handlePhoneticKeyDown, transliterateWord } from '../utils/gujaratiTransliterate';
 import PageSetupModal, { PAPER_SIZES } from './PageSetupModal';
 import GujaratiKeyPaletteModal from './GujaratiKeyPaletteModal';
+import FooterCustomizationModal from './FooterCustomizationModal';
 import { isSpeechSupported, createSpeechRecognizer } from '../utils/speechRecognition';
 import { generateDocumentQRDataUrl } from '../utils/qrVerification';
 
@@ -99,17 +103,17 @@ function generatePedhinamuDocHtml({
     `<div style="font-size: 12pt; font-weight: 700;">॥ શ્રી ગણેશાય નમઃ ॥</div>` +
     `<div style="font-size: 14pt; font-weight: 800; margin-top: 3pt; color: #0f172a;">વારસાઈ આંબો / પેઢીનામું સોગંદનામું</div>` +
     `<div style="font-size: 9.5pt; color: #475569; margin-top: 2pt;">(ગામ નમૂના નં. ૬ માં વારસાઈ નોંધ / સત્તાવાર પેઢીનામા અર્થે - રૂ. ૫૦/૧૦૦ ના સ્ટેમ્પ પેપર ઉપર)</div>` +
-  `</div>` +
+    `</div>` +
 
-  `<p class="doc-para"><strong>સમક્ષ:</strong> બહુમાનનીય તલાટી કમ મંત્રીશ્રી / મામલતદારશ્રીની કચેરી, મોજે ગામ: <strong>${dVillage}</strong>, તાલુકો: <strong>${dTaluka}</strong>, જિલ્લો: <strong>${dDistrict}</strong>.</p>` +
+    `<p class="doc-para"><strong>સમક્ષ:</strong> બહુમાનનીય તલાટી કમ મંત્રીશ્રી / મામલતદારશ્રીની કચેરી, મોજે ગામ: <strong>${dVillage}</strong>, તાલુકો: <strong>${dTaluka}</strong>, જિલ્લો: <strong>${dDistrict}</strong>.</p>` +
 
-  `<p class="doc-para">હું નીચે સહી કરનાર: <strong>${aName}</strong>, ઉંમર આશરે: <strong>${aAge}</strong> વર્ષ, ધંધો: ખેતી/વેપાર, રહેવાસી: <strong>${aAddress}</strong>, આધાર નં.: <strong>${aAadhar}</strong>.</p>` +
+    `<p class="doc-para">હું નીચે સહી કરનાર: <strong>${aName}</strong>, ઉંમર આશરે: <strong>${aAge}</strong> વર્ષ, ધંધો: ખેતી/વેપાર, રહેવાસી: <strong>${aAddress}</strong>, આધાર નં.: <strong>${aAadhar}</strong>.</p>` +
 
-  `<p class="doc-para">આથી પવિત્રતાપૂર્વક પ્રતિજ્ઞા ઉપર નીચે મુજબનું વારસાઈ પેઢીનામું સોગંદનામું જાહેર કરું છું કે:</p>` +
+    `<p class="doc-para">આથી પવિત્રતાપૂર્વક પ્રતિજ્ઞા ઉપર નીચે મુજબનું વારસાઈ પેઢીનામું સોગંદનામું જાહેર કરું છું કે:</p>` +
 
-  `<p class="doc-para">૧. અમારા કુટુંબના મૂળ પુરુષ મારા પિતાશ્રી <strong>${dName}</strong> નું અવસાન તારીખ: <strong>${dDate}</strong> ના રોજ <strong>${dPlace}</strong> મુકામે થયેલ છે.</p>` +
-  `<p class="doc-para">૨. સ્વર્ગસ્થના નામે મોજે ગામ: <strong>${dVillage}</strong>, તાલુકો: <strong>${dTaluka}</strong> ખાતે આવેલ <strong>${dKhata}</strong> વાળી મિલકત / જમીન આવેલ છે.</p>` +
-  `<p class="doc-para">૩. સ્વર્ગસ્થના અવસાન વખતે તેમના નીચે દર્શાવેલ સીધા અને કાયદેસરના વારસદારો હયાત છે, જે સિવાય અન્ય કોઈ વારસદાર હયાત નથી:</p>`;
+    `<p class="doc-para">૧. અમારા કુટુંબના મૂળ પુરુષ મારા પિતાશ્રી <strong>${dName}</strong> નું અવસાન તારીખ: <strong>${dDate}</strong> ના રોજ <strong>${dPlace}</strong> મુકામે થયેલ છે.</p>` +
+    `<p class="doc-para">૨. સ્વર્ગસ્થના નામે મોજે ગામ: <strong>${dVillage}</strong>, તાલુકો: <strong>${dTaluka}</strong> ખાતે આવેલ <strong>${dKhata}</strong> વાળી મિલકત / જમીન આવેલ છે.</p>` +
+    `<p class="doc-para">૩. સ્વર્ગસ્થના અવસાન વખતે તેમના નીચે દર્શાવેલ સીધા અને કાયદેસરના વારસદારો હયાત છે, જે સિવાય અન્ય કોઈ વારસદાર હયાત નથી:</p>`;
 
   // 2. Visual Family Tree Map (આંબો ચાર્ટ)
   if (showTreeMap) {
@@ -118,13 +122,13 @@ function generatePedhinamuDocHtml({
 
     let treeHtml = `<div class="pedhinamu-tree-wrapper" style="margin: 8pt 0 12pt 0; padding: 8pt 10pt; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 6px; text-align: center;">` +
       `<div style="font-weight: 800; font-size: 10pt; margin-bottom: 6pt; color: #1e293b; letter-spacing: 0.02em;">` +
-        `🌳 વારસાઈ આંબો (VISUAL FAMILY TREE MAP)` +
+      `🌳 વારસાઈ આંબો (VISUAL FAMILY TREE MAP)` +
       `</div>` +
 
       `<div class="tree-root-box" style="display: inline-block; background: #ffffff; border: 2px solid #1e3a8a; padding: 4pt 12pt; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.06); margin-bottom: 4pt;">` +
-        `<div style="font-weight: 800; font-size: 10.5pt; color: #0f172a;">${dName}</div>` +
-        `<div style="font-size: 8pt; color: #64748b; margin-top: 1pt;">(સ્વર્ગસ્થ મૂળ પુરુષ - મરણ: ${dDate})</div>` +
-        (spouseName ? `<div style="font-size: 8.5pt; color: #2563eb; font-weight: 700; margin-top: 2pt; border-top: 1px dashed #cbd5e1; padding-top: 2pt;">પત્ની: ${spouseName} (${spouseStatus})</div>` : '') +
+      `<div style="font-weight: 800; font-size: 10.5pt; color: #0f172a;">${dName}</div>` +
+      `<div style="font-size: 8pt; color: #64748b; margin-top: 1pt;">(સ્વર્ગસ્થ મૂળ પુરુષ - મરણ: ${dDate})</div>` +
+      (spouseName ? `<div style="font-size: 8.5pt; color: #2563eb; font-weight: 700; margin-top: 2pt; border-top: 1px dashed #cbd5e1; padding-top: 2pt;">પત્ની: ${spouseName} (${spouseStatus})</div>` : '') +
       `</div>` +
 
       `<div class="tree-connector-line" style="width: 2px; height: 10pt; background: #475569; margin: 0 auto;"></div>` +
@@ -140,7 +144,7 @@ function generatePedhinamuDocHtml({
         `<div style="font-size: 7.8pt; color: #475569;">દીકરો ${son.age ? `(ઉં. ${son.age})` : ''}</div>` +
         `<div style="font-size: 7.5pt; font-weight: 700; color: ${isDead ? '#dc2626' : '#059669'}; margin-top: 1pt;">[${son.status}]</div>` +
         (isDead && son.subHeirs ? `<div class="tree-sub-branch-box" style="margin-top: 3pt; padding: 2pt 4pt; background: #fffbeb; border: 1px dashed #f59e0b; border-radius: 3px; font-size: 7.5pt; color: #78350f; text-align: left;"><span style="font-weight:700;">↳ શાખા:</span> ${son.subHeirs}</div>` : '') +
-      `</div>`;
+        `</div>`;
     });
 
     // Daughters in tree
@@ -149,7 +153,7 @@ function generatePedhinamuDocHtml({
         `<div style="font-weight: 700; color: #0f172a;">${daughter.name || `દીકરી #${i + 1}`}</div>` +
         `<div style="font-size: 7.8pt; color: #475569;">દીકરી ${daughter.age ? `(ઉં. ${daughter.age})` : ''}</div>` +
         `<div style="font-size: 7.5pt; font-weight: 700; color: #b45309; margin-top: 1pt;">[${daughter.maritalStatus || 'પરિણીત'}]</div>` +
-      `</div>`;
+        `</div>`;
     });
 
     treeHtml += `</div></div>`;
@@ -168,7 +172,7 @@ function generatePedhinamuDocHtml({
         `<td style="border: 1px solid #334155; padding: 4pt 6pt; text-align: center;">વિધવા પત્ની</td>` +
         `<td style="border: 1px solid #334155; padding: 4pt 4pt; text-align: center;">${spouseAge} વર્ષ</td>` +
         `<td style="border: 1px solid #334155; padding: 4pt 6pt; text-align: center; font-weight: 600; color: #059669;">${spouseStatus}</td>` +
-      `</tr>`;
+        `</tr>`;
     }
 
     (sons || []).forEach((son, i) => {
@@ -176,13 +180,13 @@ function generatePedhinamuDocHtml({
       tableRows += `<tr>` +
         `<td style="border: 1px solid #334155; padding: 4pt 4pt; text-align: center; font-weight: 600;">${counter++}</td>` +
         `<td style="border: 1px solid #334155; padding: 4pt 6pt;">` +
-          `<span style="font-weight: 700;">${son.name || `પુત્ર #${i + 1}`}</span>` +
-          (son.subHeirs ? `<div style="font-size: 8.5pt; color: #475569; margin-top: 1pt;">↳ શાખા વારસદારો: ${son.subHeirs}</div>` : '') +
+        `<span style="font-weight: 700;">${son.name || `પુત્ર #${i + 1}`}</span>` +
+        (son.subHeirs ? `<div style="font-size: 8.5pt; color: #475569; margin-top: 1pt;">↳ શાખા વારસદારો: ${son.subHeirs}</div>` : '') +
         `</td>` +
         `<td style="border: 1px solid #334155; padding: 4pt 6pt; text-align: center;">દીકરો</td>` +
         `<td style="border: 1px solid #334155; padding: 4pt 4pt; text-align: center;">${son.age ? `${son.age} વર્ષ` : '-'}</td>` +
         `<td style="border: 1px solid #334155; padding: 4pt 6pt; text-align: center; color: ${isDead ? '#dc2626' : '#059669'}; font-weight: 700;">${son.status}</td>` +
-      `</tr>`;
+        `</tr>`;
     });
 
     (daughters || []).forEach((daughter, i) => {
@@ -192,75 +196,75 @@ function generatePedhinamuDocHtml({
         `<td style="border: 1px solid #334155; padding: 4pt 6pt; text-align: center;">દીકરી</td>` +
         `<td style="border: 1px solid #334155; padding: 4pt 4pt; text-align: center;">${daughter.age ? `${daughter.age} વર્ષ` : '-'}</td>` +
         `<td style="border: 1px solid #334155; padding: 4pt 6pt; text-align: center; color: #b45309; font-weight: 600;">${daughter.maritalStatus || 'પરિણીત'}</td>` +
-      `</tr>`;
+        `</tr>`;
     });
 
     html += `<div style="margin: 8pt 0 12pt 0;">` +
       `<div style="font-weight: 700; font-size: 10pt; margin-bottom: 3pt; text-align: center; color: #1e293b;">` +
-        `કાયદેસરના વારસદારોની વિગત દર્શાવતી તાલિકા:` +
+      `કાયદેસરના વારસદારોની વિગત દર્શાવતી તાલિકા:` +
       `</div>` +
       `<table style="width: 100%; border-collapse: collapse; font-size: 9.5pt; border: 1.5px solid #1e293b;">` +
-        `<thead>` +
-          `<tr style="background: #f1f5f9; border-bottom: 1.5px solid #1e293b;">` +
-            `<th style="border: 1px solid #334155; padding: 5pt 4pt; width: 35px; text-align: center;">ક્રમ</th>` +
-            `<th style="border: 1px solid #334155; padding: 5pt 6pt; text-align: left;">વારસદારનું પૂરું નામ</th>` +
-            `<th style="border: 1px solid #334155; padding: 5pt 6pt; width: 110px; text-align: center;">સંબંધ</th>` +
-            `<th style="border: 1px solid #334155; padding: 5pt 4pt; width: 60px; text-align: center;">ઉંમર</th>` +
-            `<th style="border: 1px solid #334155; padding: 5pt 6pt; width: 95px; text-align: center;">સ્થિતિ</th>` +
-          `</tr>` +
-        `</thead>` +
-        `<tbody>${tableRows}</tbody>` +
+      `<thead>` +
+      `<tr style="background: #f1f5f9; border-bottom: 1.5px solid #1e293b;">` +
+      `<th style="border: 1px solid #334155; padding: 5pt 4pt; width: 35px; text-align: center;">ક્રમ</th>` +
+      `<th style="border: 1px solid #334155; padding: 5pt 6pt; text-align: left;">વારસદારનું પૂરું નામ</th>` +
+      `<th style="border: 1px solid #334155; padding: 5pt 6pt; width: 110px; text-align: center;">સંબંધ</th>` +
+      `<th style="border: 1px solid #334155; padding: 5pt 4pt; width: 60px; text-align: center;">ઉંમર</th>` +
+      `<th style="border: 1px solid #334155; padding: 5pt 6pt; width: 95px; text-align: center;">સ્થિતિ</th>` +
+      `</tr>` +
+      `</thead>` +
+      `<tbody>${tableRows}</tbody>` +
       `</table>` +
-    `</div>`;
+      `</div>`;
   }
 
   // 4. Declarations & Signatures
   html += `<p style="margin: 0 0 6pt 0; line-height: 1.75; text-align: justify;">૪. આ સિવાય સ્વર્ગસ્થને અન્ય કોઈ પુત્ર, પુત્રી, પત્ની કે દત્તક લીધેલ સંતાન નથી કે કોઈ વારસદારનું નામ છુપાવેલ નથી.</p>` +
-  `<p style="margin: 0 0 10pt 0; line-height: 1.75; text-align: justify;">૫. જો ભવિષ્યમાં કોઈ અન્ય વારસદારનો હક્ક નીકળશે અથવા આ પેઢીનામું ખોટું સાબિત થશે, તો તેની તમામ દીવાની તથા ફોજદારી કાયદેસરની જવાબદારી મારી અંગત રહેશે.</p>` +
+    `<p style="margin: 0 0 10pt 0; line-height: 1.75; text-align: justify;">૫. જો ભવિષ્યમાં કોઈ અન્ય વારસદારનો હક્ક નીકળશે અથવા આ પેઢીનામું ખોટું સાબિત થશે, તો તેની તમામ દીવાની તથા ફોજદારી કાયદેસરની જવાબદારી મારી અંગત રહેશે.</p>` +
 
-  `<div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 14pt; margin-bottom: 12pt;">` +
+    `<div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 14pt; margin-bottom: 12pt;">` +
     `<div>` +
-      `<div>સ્થળ: <strong>${dDistrict}</strong></div>` +
-      `<div>તારીખ: <strong>${new Date().toLocaleDateString('en-GB')}</strong></div>` +
+    `<div>સ્થળ: <strong>${dDistrict}</strong></div>` +
+    `<div>તારીખ: <strong>${new Date().toLocaleDateString('en-GB')}</strong></div>` +
     `</div>` +
     `<div style="text-align: center;">` +
-      `<div style="margin-bottom: 25pt;">____________________________________</div>` +
-      `<div style="font-weight: 700;">(${aName})</div>` +
-      `<div style="font-size: 8.5pt; color: #475569;">સોગંદ આપનાર / અરજદારની સહી</div>` +
+    `<div style="margin-bottom: 25pt;">____________________________________</div>` +
+    `<div style="font-weight: 700;">(${aName})</div>` +
+    `<div style="font-size: 8.5pt; color: #475569;">સોગંદ આપનાર / અરજદારની સહી</div>` +
     `</div>` +
-  `</div>` +
+    `</div>` +
 
-  `<div class="doc-verification-box" style="border-top: 1.5px dashed #475569; padding-top: 8pt; margin-top: 10pt;">` +
+    `<div class="doc-verification-box" style="border-top: 1.5px dashed #475569; padding-top: 8pt; margin-top: 10pt;">` +
     `<div style="font-weight: 800; font-size: 10.5pt; margin-bottom: 4pt; text-align: center; color: #0f172a;">` +
-      `રૂબરૂ પંચોનું પંચનામું (LOCAL WITNESS PANCHNAMA)` +
+    `રૂબરૂ પંચોનું પંચનામું (LOCAL WITNESS PANCHNAMA)` +
     `</div>` +
     `<p style="font-size: 9.5pt; line-height: 1.6; color: #334155; margin-bottom: 8pt; text-align: justify;">` +
-      `અમો નીચે સહી કરનાર પંચો આથી ખાતરીપૂર્વક જણાવીએ છીએ કે સ્વર્ગસ્થ <strong>${dName}</strong> ના કુટુંબને અમો વર્ષોથી ઓળખીએ છીએ. ઉપરોક્ત પેઢીનામામાં દર્શાવેલ વારસદારોની વિગત તદ્દન સાચી અને ખરી છે, જેની ખાતરી બદલ અમો પંચોએ રૂબરૂ સહી કરેલ છે.` +
+    `અમો નીચે સહી કરનાર પંચો આથી ખાતરીપૂર્વક જણાવીએ છીએ કે સ્વર્ગસ્થ <strong>${dName}</strong> ના કુટુંબને અમો વર્ષોથી ઓળખીએ છીએ. ઉપરોક્ત પેઢીનામામાં દર્શાવેલ વારસદારોની વિગત તદ્દન સાચી અને ખરી છે, જેની ખાતરી બદલ અમો પંચોએ રૂબરૂ સહી કરેલ છે.` +
     `</p>` +
 
     `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 8pt;">` +
-      `<div style="border: 1px solid #cbd5e1; padding: 6pt; border-radius: 4px; background: #ffffff;">` +
-        `<div style="font-weight: 700; font-size: 9.5pt;">પંચ નં. ૧ ની વિગત & સહી:</div>` +
-        `<div style="font-size: 9pt; color: #475569; margin-top: 2pt;">${panch1 || '૧. ....................................................................'}</div>` +
-        `<div style="margin-top: 18pt; border-top: 1px dotted #94a3b8; padding-top: 2pt; font-size: 8.5pt; text-align: center;">પંચ નં. ૧ ની સહી</div>` +
-      `</div>` +
-
-      `<div style="border: 1px solid #cbd5e1; padding: 6pt; border-radius: 4px; background: #ffffff;">` +
-        `<div style="font-weight: 700; font-size: 9.5pt;">પંચ નં. ૨ ની વિગત & સહી:</div>` +
-        `<div style="font-size: 9pt; color: #475569; margin-top: 2pt;">${panch2 || '૨. ....................................................................'}</div>` +
-        `<div style="margin-top: 18pt; border-top: 1px dotted #94a3b8; padding-top: 2pt; font-size: 8.5pt; text-align: center;">પંચ નં. ૨ ની સહી</div>` +
-      `</div>` +
+    `<div style="border: 1px solid #cbd5e1; padding: 6pt; border-radius: 4px; background: #ffffff;">` +
+    `<div style="font-weight: 700; font-size: 9.5pt;">પંચ નં. ૧ ની વિગત & સહી:</div>` +
+    `<div style="font-size: 9pt; color: #475569; margin-top: 2pt;">${panch1 || '૧. ....................................................................'}</div>` +
+    `<div style="margin-top: 18pt; border-top: 1px dotted #94a3b8; padding-top: 2pt; font-size: 8.5pt; text-align: center;">પંચ નં. ૧ ની સહી</div>` +
     `</div>` +
-  `</div>`;
+
+    `<div style="border: 1px solid #cbd5e1; padding: 6pt; border-radius: 4px; background: #ffffff;">` +
+    `<div style="font-weight: 700; font-size: 9.5pt;">પંચ નં. ૨ ની વિગત & સહી:</div>` +
+    `<div style="font-size: 9pt; color: #475569; margin-top: 2pt;">${panch2 || '૨. ....................................................................'}</div>` +
+    `<div style="margin-top: 18pt; border-top: 1px dotted #94a3b8; padding-top: 2pt; font-size: 8.5pt; text-align: center;">પંચ નં. ૨ ની સહી</div>` +
+    `</div>` +
+    `</div>` +
+    `</div>`;
 
   return html;
 }
 
-export default function DocumentStudio({ 
-  currentTemplate, 
-  templates, 
-  onSelectTemplate, 
-  onOpenTemplateLibrary, 
+export default function DocumentStudio({
+  currentTemplate,
+  templates,
+  onSelectTemplate,
+  onOpenTemplateLibrary,
   userSettings,
   onRecordSaved
 }) {
@@ -276,9 +280,9 @@ export default function DocumentStudio({
   }
 
   // Check if current template is Pedhinamu
-  const isPedhinamu = currentTemplate?.id === 'pedigree-heir-affidavit' || 
-                      currentTemplate?.isPedhinamu === true || 
-                      (currentTemplate?.title && currentTemplate.title.includes('પેઢીનામું'));
+  const isPedhinamu = currentTemplate?.id === 'pedigree-heir-affidavit' ||
+    currentTemplate?.isPedhinamu === true ||
+    (currentTemplate?.title && currentTemplate.title.includes('પેઢીનામું'));
 
   // Extract variables dynamically from template content
   const detectedVariables = useMemo(() => {
@@ -419,6 +423,7 @@ export default function DocumentStudio({
   // Page Setup state
   const [pageSetup, setPageSetup] = useState(() => loadPageSetup());
   const [isPageSetupOpen, setIsPageSetupOpen] = useState(false);
+  const [isFooterMenuOpen, setIsFooterMenuOpen] = useState(false);
 
   // Direct editing on paper state
   const [isDirectEditMode, setIsDirectEditMode] = useState(false);
@@ -431,24 +436,61 @@ export default function DocumentStudio({
   const lastSavedRangeRef = useRef(null);
   const lastActiveInputRef = useRef(null);
   const [qrDataUrl, setQrDataUrl] = useState('');
+  const [selectedWordSize, setSelectedWordSize] = useState(null);
 
-  // Track selection and focus for inserting characters from on-screen palette
+  // Track selection and focus for inserting characters from on-screen palette and font sizing
   useEffect(() => {
     const handleSelectionSave = () => {
       const sel = window.getSelection();
-      if (sel && sel.rangeCount > 0) {
-        const range = sel.getRangeAt(0);
-        const container = range.commonAncestorContainer;
-        const el = container.nodeType === 1 ? container : container.parentElement;
-        if (el && (el.isContentEditable || el.closest?.('[contenteditable="true"]'))) {
-          lastSavedRangeRef.current = range.cloneRange();
-          lastActiveInputRef.current = null;
+      if (!sel || sel.rangeCount === 0 || sel.isCollapsed || !sel.toString().trim()) {
+        setSelectedWordSize(null);
+        return;
+      }
+
+      const range = sel.getRangeAt(0);
+      const container = range.commonAncestorContainer;
+      const el = container.nodeType === 1 ? container : container.parentElement;
+
+      if (el && (el.isContentEditable || el.closest?.('[contenteditable="true"]'))) {
+        lastSavedRangeRef.current = range.cloneRange();
+        lastActiveInputRef.current = null;
+      }
+
+      const docBody = el ? (el.classList?.contains('document-body') ? el : el.closest?.('.document-body')) : null;
+      if (docBody) {
+        let sizePt = null;
+        let probe = el;
+        while (probe && probe !== docBody) {
+          if (probe.tagName === 'SPAN' && probe.style && probe.style.fontSize) {
+            const parsed = parseFloat(probe.style.fontSize);
+            if (!isNaN(parsed)) {
+              if (probe.style.fontSize.includes('pt')) sizePt = Math.round(parsed);
+              else if (probe.style.fontSize.includes('px')) sizePt = Math.round(parsed * 0.75);
+            }
+            break;
+          }
+          probe = probe.parentElement;
         }
+
+        if (sizePt === null) {
+          try {
+            const computed = window.getComputedStyle(el);
+            const px = parseFloat(computed.fontSize);
+            if (!isNaN(px)) sizePt = Math.round(px * 0.75);
+            else sizePt = pageSetup.fontSizePt || 13;
+          } catch (e) {
+            sizePt = pageSetup.fontSizePt || 13;
+          }
+        }
+        setSelectedWordSize(sizePt);
+      } else {
+        setSelectedWordSize(null);
       }
     };
     document.addEventListener('selectionchange', handleSelectionSave);
     return () => document.removeEventListener('selectionchange', handleSelectionSave);
-  }, []);
+  }, [pageSetup.fontSizePt]);
+
 
   useEffect(() => {
     const handleFocusTrack = (e) => {
@@ -470,7 +512,7 @@ export default function DocumentStudio({
       let ok = false;
       try {
         ok = document.execCommand('insertText', false, char);
-      } catch (e) {}
+      } catch (e) { }
 
       if (!ok) {
         const node = document.createTextNode(char);
@@ -519,7 +561,7 @@ export default function DocumentStudio({
       let ok = false;
       try {
         ok = document.execCommand('insertText', false, cleanText);
-      } catch (e) {}
+      } catch (e) { }
 
       if (!ok) {
         const node = document.createTextNode(cleanText);
@@ -560,7 +602,7 @@ export default function DocumentStudio({
       docBody.focus();
       try {
         document.execCommand('insertText', false, cleanText);
-      } catch (e) {}
+      } catch (e) { }
     }
   };
 
@@ -738,10 +780,10 @@ export default function DocumentStudio({
   // Digital Verification QR Code Generation Effect
   useEffect(() => {
     let isMounted = true;
-    const clientName = isPedhinamu 
-      ? applicantName 
+    const clientName = isPedhinamu
+      ? applicantName
       : (formValues['અરજદારનું_નામ'] || formValues['વેચનારનું_પૂરું_નામ'] || formValues['લખી_આપનાર_નામ'] || formValues['પ્રથમ_પક્ષકાર_નામ'] || formValues['Applicant_Name'] || 'અરજદાર');
-    
+
     const docDate = formValues['તારીખ'] || formValues['દસ્તાવેજ_તારીખ'] || formValues['Date'] || new Date().toLocaleDateString('gu-IN');
     const docPlace = formValues['સ્થળ'] || formValues['ગામ'] || formValues['Place'] || '';
 
@@ -987,6 +1029,141 @@ export default function DocumentStudio({
     savePageSetup(newSetup);
   };
 
+  const handleIncreaseFontSize = () => {
+    const currentSize = pageSetup.fontSizePt || 13;
+    if (currentSize < 24) {
+      handleSavePageSetup({
+        ...pageSetup,
+        fontSizePt: Math.min(24, currentSize + 1)
+      });
+    }
+  };
+
+  const handleDecreaseFontSize = () => {
+    const currentSize = pageSetup.fontSizePt || 13;
+    if (currentSize > 9) {
+      handleSavePageSetup({
+        ...pageSetup,
+        fontSizePt: Math.max(9, currentSize - 1)
+      });
+    }
+  };
+
+  /**
+   * Unified Font Size Handler:
+   * 1. If text is selected on paper -> continuously scales only that selected word without losing selection.
+   * 2. If no text is selected -> scales the entire document base font size.
+   */
+  const handleUnifiedFontSizeChange = (deltaPt) => {
+    const selection = window.getSelection();
+    const hasSelection = selection && selection.rangeCount > 0 && !selection.isCollapsed && selection.toString().trim().length > 0;
+
+    // No word selected -> change entire document size
+    if (!hasSelection) {
+      if (deltaPt > 0) {
+        handleIncreaseFontSize();
+      } else {
+        handleDecreaseFontSize();
+      }
+      return;
+    }
+
+    // Word is selected -> scale only that word
+    const range = selection.getRangeAt(0);
+    const container = range.commonAncestorContainer;
+    const docBody = container.nodeType === 1
+      ? container.closest('.document-body')
+      : container.parentElement?.closest('.document-body');
+
+    if (!docBody) {
+      if (deltaPt > 0) {
+        handleIncreaseFontSize();
+      } else {
+        handleDecreaseFontSize();
+      }
+      return;
+    }
+
+    if (docBody.contentEditable !== 'true') {
+      docBody.contentEditable = 'true';
+    }
+
+    pushToHistory(customDirectHtml, formValues);
+
+    let parentElem = container.nodeType === 1 ? container : container.parentElement;
+    let targetSpan = null;
+
+    let probe = parentElem;
+    while (probe && probe !== docBody) {
+      if (probe.tagName === 'SPAN' && probe.style && probe.style.fontSize) {
+        targetSpan = probe;
+        break;
+      }
+      probe = probe.parentElement;
+    }
+
+    let currentPt = null;
+    if (targetSpan) {
+      const parsed = parseFloat(targetSpan.style.fontSize);
+      if (!isNaN(parsed)) {
+        if (targetSpan.style.fontSize.includes('pt')) currentPt = Math.round(parsed);
+        else if (targetSpan.style.fontSize.includes('px')) currentPt = Math.round(parsed * 0.75);
+      }
+    }
+
+    if (currentPt === null) {
+      try {
+        const computed = window.getComputedStyle(parentElem);
+        const px = parseFloat(computed.fontSize);
+        if (!isNaN(px)) {
+          currentPt = Math.round(px * 0.75);
+        } else {
+          currentPt = pageSetup.fontSizePt || 13;
+        }
+      } catch (e) {
+        currentPt = pageSetup.fontSizePt || 13;
+      }
+    }
+
+    const nextSizePt = Math.min(60, Math.max(8, currentPt + deltaPt));
+
+    // If targetSpan already exists and covers the selection, update it directly
+    if (targetSpan && targetSpan.textContent.trim() === selection.toString().trim()) {
+      targetSpan.style.fontSize = `${nextSizePt}pt`;
+      const newRange = document.createRange();
+      newRange.selectNodeContents(targetSpan);
+      selection.removeAllRanges();
+      selection.addRange(newRange);
+    } else {
+      // Wrap selection into a span
+      const span = document.createElement('span');
+      span.style.fontSize = `${nextSizePt}pt`;
+      span.style.lineHeight = 'inherit';
+
+      try {
+        const contents = range.extractContents();
+        span.appendChild(contents);
+        range.insertNode(span);
+
+        // Keep selection active on the newly wrapped text
+        const newRange = document.createRange();
+        newRange.selectNodeContents(span);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+      } catch (err) {
+        console.warn('Unified word font scaling error:', err);
+      }
+    }
+
+    setSelectedWordSize(nextSizePt);
+    // Crucial: Do NOT call handleDirectEditBlur() here to prevent React from re-rendering
+    // dangerouslySetInnerHTML which would destroy the active browser selection.
+  };
+
+  const handleSelectedWordFontSize = handleUnifiedFontSizeChange;
+
+
+
   const handleDirectEditBlur = () => {
     const docBodies = document.querySelectorAll('.document-body');
     if (docBodies.length > 0) {
@@ -1107,8 +1284,8 @@ export default function DocumentStudio({
               <Layers size={13} />
               {currentTemplate.category}
             </span>
-            <button 
-              className="btn-secondary" 
+            <button
+              className="btn-secondary"
               onClick={onOpenTemplateLibrary}
               style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
             >
@@ -1122,7 +1299,7 @@ export default function DocumentStudio({
               <span>કુલ <strong>{(spouseName ? 1 : 0) + sons.length + daughters.length}</strong> વારસદારો | ફેમિલી ટ્રી ઓટો-જનરેટર</span>
             ) : (
               <span>
-                કુલ <strong>{detectedVariables.length}</strong> પેરામીટર્સ 
+                કુલ <strong>{detectedVariables.length}</strong> પેરામીટર્સ
                 {unfilledCount > 0 ? (
                   <span style={{ color: 'var(--accent-gold-dark)', marginLeft: '0.4rem' }}>
                     ({unfilledCount} ભરવાના બાકી)
@@ -1138,9 +1315,9 @@ export default function DocumentStudio({
         </div>
 
         {/* Action bar for quick helper actions */}
-        <div style={{ 
-          padding: '0.65rem 1.5rem', 
-          background: '#f8fafc', 
+        <div style={{
+          padding: '0.65rem 1.5rem',
+          background: '#f8fafc',
           borderBottom: '1px solid var(--border-subtle)',
           display: 'flex',
           alignItems: 'center',
@@ -1148,7 +1325,7 @@ export default function DocumentStudio({
           gap: '0.5rem',
           flexWrap: 'wrap'
         }}>
-          <button 
+          <button
             className="tool-toggle-btn"
             onClick={handleFillDemo}
             title="નમૂના માટે સેમ્પલ ડેટા ભરો"
@@ -1158,7 +1335,7 @@ export default function DocumentStudio({
             <span>સેમ્પલ વિગતો ભરો</span>
           </button>
 
-          <button 
+          <button
             className="tool-toggle-btn"
             onClick={isPedhinamu ? handleResetPedhinamuDemo : handleClearForm}
             title={isPedhinamu ? "સેમ્પલ રીસેટ કરો" : "તમામ ફિલ્ડ ખાલી કરો"}
@@ -1181,10 +1358,10 @@ export default function DocumentStudio({
                 <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>દા.ત. 500000</span>
               </div>
               <div style={{ display: 'flex', gap: '0.4rem' }}>
-                <input 
-                  type="text" 
-                  className="input-control" 
-                  placeholder="રકમ દાખલ કરો (દા.ત. 550000)..." 
+                <input
+                  type="text"
+                  className="input-control"
+                  placeholder="રકમ દાખલ કરો (દા.ત. 550000)..."
                   value={quickCalcAmount}
                   onChange={e => {
                     setQuickCalcAmount(e.target.value);
@@ -1196,9 +1373,9 @@ export default function DocumentStudio({
               {quickCalcWords && (
                 <div className="result-text">
                   <span>{quickCalcWords}</span>
-                  <button 
-                    type="button" 
-                    className="btn-secondary" 
+                  <button
+                    type="button"
+                    className="btn-secondary"
                     style={{ fontSize: '0.68rem', padding: '0.15rem 0.45rem', background: '#ffffff' }}
                     onClick={() => {
                       navigator.clipboard.writeText(quickCalcWords);
@@ -1226,7 +1403,7 @@ export default function DocumentStudio({
 
                 <div className="field-group">
                   <label className="field-label">સ્વર્ગસ્થ વ્યક્તિનું પૂરું નામ</label>
-                  <input 
+                  <input
                     type="text"
                     className="input-control"
                     value={deceasedName}
@@ -1239,7 +1416,7 @@ export default function DocumentStudio({
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                   <div>
                     <label className="field-label">અવસાન તારીખ</label>
-                    <input 
+                    <input
                       type="text"
                       className="input-control"
                       value={deathDate}
@@ -1249,7 +1426,7 @@ export default function DocumentStudio({
                   </div>
                   <div>
                     <label className="field-label">અવસાન સ્થળ</label>
-                    <input 
+                    <input
                       type="text"
                       className="input-control"
                       value={deathPlace}
@@ -1263,7 +1440,7 @@ export default function DocumentStudio({
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginTop: '0.5rem' }}>
                   <div>
                     <label className="field-label">ગામ</label>
-                    <input 
+                    <input
                       type="text"
                       className="input-control"
                       value={village}
@@ -1273,7 +1450,7 @@ export default function DocumentStudio({
                   </div>
                   <div>
                     <label className="field-label">તાલુકો</label>
-                    <input 
+                    <input
                       type="text"
                       className="input-control"
                       value={taluka}
@@ -1283,7 +1460,7 @@ export default function DocumentStudio({
                   </div>
                   <div>
                     <label className="field-label">જીલ્લો</label>
-                    <input 
+                    <input
                       type="text"
                       className="input-control"
                       value={district}
@@ -1295,7 +1472,7 @@ export default function DocumentStudio({
 
                 <div className="field-group" style={{ marginTop: '0.5rem' }}>
                   <label className="field-label">ખાતા નં. / સર્વે નં. વિગત</label>
-                  <input 
+                  <input
                     type="text"
                     className="input-control"
                     value={khataSurveyNo}
@@ -1314,7 +1491,7 @@ export default function DocumentStudio({
 
                 <div className="field-group">
                   <label className="field-label">અરજદારનું પૂરું નામ</label>
-                  <input 
+                  <input
                     type="text"
                     className="input-control"
                     value={applicantName}
@@ -1326,7 +1503,7 @@ export default function DocumentStudio({
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                   <div>
                     <label className="field-label">ઉંમર (વર્ષ)</label>
-                    <input 
+                    <input
                       type="text"
                       className="input-control"
                       value={applicantAge}
@@ -1335,7 +1512,7 @@ export default function DocumentStudio({
                   </div>
                   <div>
                     <label className="field-label">સંબંધ</label>
-                    <input 
+                    <input
                       type="text"
                       className="input-control"
                       value={applicantRelation}
@@ -1348,7 +1525,7 @@ export default function DocumentStudio({
 
                 <div className="field-group" style={{ marginTop: '0.5rem' }}>
                   <label className="field-label">આધાર કાર્ડ નંબર</label>
-                  <input 
+                  <input
                     type="text"
                     className="input-control"
                     value={applicantAadhar}
@@ -1359,7 +1536,7 @@ export default function DocumentStudio({
 
                 <div className="field-group" style={{ marginTop: '0.5rem' }}>
                   <label className="field-label">અરજદારનું સરનામું</label>
-                  <textarea 
+                  <textarea
                     className="input-control"
                     rows={2}
                     value={applicantAddress}
@@ -1377,7 +1554,7 @@ export default function DocumentStudio({
 
                 <div className="field-group">
                   <label className="field-label">પત્નીનું નામ</label>
-                  <input 
+                  <input
                     type="text"
                     className="input-control"
                     value={spouseName}
@@ -1390,7 +1567,7 @@ export default function DocumentStudio({
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                   <div>
                     <label className="field-label">ઉંમર (વર્ષ)</label>
-                    <input 
+                    <input
                       type="text"
                       className="input-control"
                       value={spouseAge}
@@ -1399,7 +1576,7 @@ export default function DocumentStudio({
                   </div>
                   <div>
                     <label className="field-label">સ્થિતિ</label>
-                    <input 
+                    <input
                       type="text"
                       className="input-control"
                       value={spouseStatus}
@@ -1415,10 +1592,10 @@ export default function DocumentStudio({
               <div className="form-category-group">
                 <div className="category-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span>૪. પુત્રોની યાદી ({sons.length} દીકરા)</span>
-                  <button 
-                    type="button" 
-                    className="btn-secondary" 
-                    style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }} 
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
                     onClick={handleAddSon}
                   >
                     <Plus size={12} /> + દીકરો ઉમેરો
@@ -1429,9 +1606,9 @@ export default function DocumentStudio({
                   <div key={son.id} style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.75rem', marginBottom: '0.75rem', background: '#f8fafc' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
                       <span style={{ fontWeight: 600, fontSize: '0.85rem', color: '#1e3a8a' }}>દીકરો #{idx + 1}</span>
-                      <button 
-                        type="button" 
-                        onClick={() => handleRemoveSon(son.id)} 
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSon(son.id)}
                         style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px' }}
                         title="દીકરો દૂર કરો"
                       >
@@ -1440,7 +1617,7 @@ export default function DocumentStudio({
                     </div>
 
                     <div className="field-group" style={{ marginBottom: '0.4rem' }}>
-                      <input 
+                      <input
                         type="text"
                         className="input-control"
                         placeholder="દીકરાનું પૂરું નામ"
@@ -1451,14 +1628,14 @@ export default function DocumentStudio({
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.4rem' }}>
-                      <input 
+                      <input
                         type="text"
                         className="input-control"
                         placeholder="ઉંમર"
                         value={son.age}
                         onChange={e => handleUpdateSon(son.id, 'age', e.target.value)}
                       />
-                      <select 
+                      <select
                         className="input-control"
                         value={son.status}
                         onChange={e => handleUpdateSon(son.id, 'status', e.target.value)}
@@ -1471,7 +1648,7 @@ export default function DocumentStudio({
                     {son.status === 'મરણ ગયેલ' && (
                       <div className="field-group" style={{ marginTop: '0.4rem' }}>
                         <label className="field-label" style={{ color: '#b91c1c' }}>શાખા વારસદારો (પત્ની/સંતાનો):</label>
-                        <input 
+                        <input
                           type="text"
                           className="input-control"
                           placeholder="દા.ત. પત્ની: મીનાબેન, પુત્ર: દર્શન (ઉં. ૧૮)"
@@ -1489,10 +1666,10 @@ export default function DocumentStudio({
               <div className="form-category-group">
                 <div className="category-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span>૫. પુત્રીઓની યાદી ({daughters.length} દીકરીઓ)</span>
-                  <button 
-                    type="button" 
-                    className="btn-secondary" 
-                    style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }} 
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
                     onClick={handleAddDaughter}
                   >
                     <Plus size={12} /> + દીકરી ઉમેરો
@@ -1503,9 +1680,9 @@ export default function DocumentStudio({
                   <div key={daughter.id} style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '0.75rem', marginBottom: '0.75rem', background: '#f8fafc' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
                       <span style={{ fontWeight: 600, fontSize: '0.85rem', color: '#b45309' }}>દીકરી #{idx + 1}</span>
-                      <button 
-                        type="button" 
-                        onClick={() => handleRemoveDaughter(daughter.id)} 
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveDaughter(daughter.id)}
                         style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px' }}
                         title="દીકરી દૂર કરો"
                       >
@@ -1514,7 +1691,7 @@ export default function DocumentStudio({
                     </div>
 
                     <div className="field-group" style={{ marginBottom: '0.4rem' }}>
-                      <input 
+                      <input
                         type="text"
                         className="input-control"
                         placeholder="દીકરીનું પૂરું નામ"
@@ -1525,14 +1702,14 @@ export default function DocumentStudio({
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                      <input 
+                      <input
                         type="text"
                         className="input-control"
                         placeholder="ઉંમર"
                         value={daughter.age}
                         onChange={e => handleUpdateDaughter(daughter.id, 'age', e.target.value)}
                       />
-                      <select 
+                      <select
                         className="input-control"
                         value={daughter.maritalStatus}
                         onChange={e => handleUpdateDaughter(daughter.id, 'maritalStatus', e.target.value)}
@@ -1553,7 +1730,7 @@ export default function DocumentStudio({
                 </div>
                 <div className="field-group">
                   <label className="field-label">પંચ નં. ૧ (નામ, ઉંમર, સરનામું)</label>
-                  <input 
+                  <input
                     type="text"
                     className="input-control"
                     value={panch1}
@@ -1563,7 +1740,7 @@ export default function DocumentStudio({
                 </div>
                 <div className="field-group" style={{ marginTop: '0.5rem' }}>
                   <label className="field-label">પંચ નં. ૨ (નામ, ઉંમર, સરનામું)</label>
-                  <input 
+                  <input
                     type="text"
                     className="input-control"
                     value={panch2}
@@ -1587,18 +1764,18 @@ export default function DocumentStudio({
                     {vars.map(varKey => {
                       const val = formValues[varKey] || '';
                       const vLower = varKey.toLowerCase();
-                      const isTextarea = varKey.includes("સરનામું") || 
-                                         varKey.includes("વિગત") || 
-                                         varKey.includes("યાદી") || 
-                                         varKey.includes("હેતુ") ||
-                                         varKey.includes("શરતો") ||
-                                         varKey.includes("ક્ષેત્ર") ||
-                                         vLower.includes("address") ||
-                                         vLower.includes("details") ||
-                                         vLower.includes("terms") ||
-                                         vLower.includes("schedule") ||
-                                         vLower.includes("description") ||
-                                         vLower.includes("boundaries");
+                      const isTextarea = varKey.includes("સરનામું") ||
+                        varKey.includes("વિગત") ||
+                        varKey.includes("યાદી") ||
+                        varKey.includes("હેતુ") ||
+                        varKey.includes("શરતો") ||
+                        varKey.includes("ક્ષેત્ર") ||
+                        vLower.includes("address") ||
+                        vLower.includes("details") ||
+                        vLower.includes("terms") ||
+                        vLower.includes("schedule") ||
+                        vLower.includes("description") ||
+                        vLower.includes("boundaries");
 
                       return (
                         <div key={varKey} className="field-group">
@@ -1610,8 +1787,8 @@ export default function DocumentStudio({
                             <textarea
                               className="input-control"
                               value={val}
-                              placeholder={isEnglish 
-                                ? `Enter ${varKey.replace(/_/g, " ")} here...` 
+                              placeholder={isEnglish
+                                ? `Enter ${varKey.replace(/_/g, " ")} here...`
                                 : `અહીં ${varKey.replace(/_/g, " ")} દાખલ કરો... (અંગ્રેજીમાં ટાઇપ કરશો તો આપોઆપ ગુજરાતી થશે)`
                               }
                               rows={2}
@@ -1623,8 +1800,8 @@ export default function DocumentStudio({
                               type="text"
                               className="input-control"
                               value={val}
-                              placeholder={isEnglish 
-                                ? `Enter ${varKey.replace(/_/g, " ")}...` 
+                              placeholder={isEnglish
+                                ? `Enter ${varKey.replace(/_/g, " ")}...`
                                 : `અહીં ${varKey.replace(/_/g, " ")} દાખલ કરો...`
                               }
                               onChange={e => handleInputChange(varKey, e.target.value)}
@@ -1650,7 +1827,7 @@ export default function DocumentStudio({
               </span>
             )}
           </div>
-          <button 
+          <button
             className="btn-gold"
             onClick={handleSaveClientRecord}
             title="આ અસીલનો દસ્તાવેજ રેકોર્ડમાં સાચવો"
@@ -1672,17 +1849,17 @@ export default function DocumentStudio({
               <span style={{ color: '#94a3b8', fontSize: '0.74rem' }}>— કીબોર્ડ પરથી [Esc] કી દબાવીને સામાન્ય વ્યૂમાં પાછા જઈ શકો છો</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <button 
-                type="button" 
-                className="btn-primary" 
+              <button
+                type="button"
+                className="btn-primary"
                 onClick={handlePrint}
                 style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }}
               >
                 <Printer size={13} />
                 <span>પ્રિન્ટ / PDF</span>
               </button>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setIsFullscreenReview(false)}
                 style={{
                   background: 'rgba(255, 255, 255, 0.15)',
@@ -1751,12 +1928,12 @@ export default function DocumentStudio({
 
         {/* Preview Toolbar (Two-Tier Structured Layout to Prevent Overlap) */}
         <div className="preview-toolbar">
-          
+
           {/* Row 1: Typing Mode, Font Selector, Text Formatting Tools (Bold, Italic, Underline), and Action Buttons */}
           <div className="toolbar-row primary-toolbar-row">
             <div className="toolbar-group">
               {/* Phonetic Keyboard Toggle */}
-              <button 
+              <button
                 type="button"
                 className={`phonetic-toggle-btn ${isPhoneticActive ? 'active' : ''}`}
                 onClick={() => setIsPhoneticActive(!isPhoneticActive)}
@@ -1767,7 +1944,7 @@ export default function DocumentStudio({
               </button>
 
               {/* On-Screen Gujarati Character Palette / Keyboard Reference */}
-              <button 
+              <button
                 type="button"
                 className={`phonetic-toggle-btn ${isKeyPaletteOpen ? 'active' : ''}`}
                 onClick={() => setIsKeyPaletteOpen(!isKeyPaletteOpen)}
@@ -1778,7 +1955,7 @@ export default function DocumentStudio({
               </button>
 
               {/* Gujarati Voice Typing (Speech to Text) Button */}
-              <button 
+              <button
                 type="button"
                 className={`phonetic-toggle-btn voice-dictation-btn ${isListening ? 'listening-active' : ''}`}
                 onClick={toggleVoiceTyping}
@@ -1791,7 +1968,7 @@ export default function DocumentStudio({
               {/* Legal Font Selector */}
               <div className="toolbar-font-box">
                 <Type size={14} style={{ color: 'var(--primary)' }} />
-                <select 
+                <select
                   className="font-select-control"
                   value={selectedFontId}
                   onChange={e => setSelectedFontId(e.target.value)}
@@ -1805,7 +1982,48 @@ export default function DocumentStudio({
                 </select>
               </div>
 
-              {/* Text Formatter Option: Bold, Italic, Underline (Icon Only) */}
+              {/* Unified Font Size Stepper (Controls Entire Document or Selected Word in ONE button) */}
+              <div
+                className="font-size-stepper-box"
+                title={selectedWordSize ? `સિલેક્ટ કરેલ શબ્દ સાઈઝ (${selectedWordSize}pt) - ક્લિક કરીને વધારો/ઘટાડો` : `દસ્તાવેજ ફોન્ટ સાઈઝ (${pageSetup.fontSizePt || 13}pt) - ક્લિક કરીને વધારો/ઘટાડો`}
+              >
+                <button
+                  type="button"
+                  className="font-size-btn"
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => handleUnifiedFontSizeChange(-1)}
+                  disabled={!selectedWordSize && (pageSetup.fontSizePt || 13) <= 9}
+                  title={selectedWordSize ? "સિલેક્ટ કરેલો શબ્દ નાનો કરો (A-)" : "આખા દસ્તાવેજના ફોન્ટ નાના કરો (A-)"}
+                  aria-label="Decrease Font Size"
+                >
+                  <Minus size={13} strokeWidth={2.5} />
+                  <span className="font-step-letter">A-</span>
+                </button>
+                <span
+                  className="font-size-display-text"
+                  title={selectedWordSize ? `સિલેક્ટ કરેલ શબ્દ સાઈઝ: ${selectedWordSize}pt` : `દસ્તાવેજ ફોન્ટ સાઈઝ: ${pageSetup.fontSizePt || 13}pt`}
+                  style={{
+                    color: selectedWordSize ? '#1d4ed8' : '#0f172a',
+                    fontWeight: 700
+                  }}
+                >
+                  {selectedWordSize ? `${selectedWordSize}pt` : `${pageSetup.fontSizePt || 13}pt`}
+                </span>
+                <button
+                  type="button"
+                  className="font-size-btn"
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => handleUnifiedFontSizeChange(1)}
+                  disabled={!selectedWordSize && (pageSetup.fontSizePt || 13) >= 24}
+                  title={selectedWordSize ? "સિલેક્ટ કરેલો શબ્દ મોટો કરો (A+)" : "આખા દસ્તાવેજના ફોન્ટ મોટા કરો (A+)"}
+                  aria-label="Increase Font Size"
+                >
+                  <Plus size={13} strokeWidth={2.5} />
+                  <span className="font-step-letter">A+</span>
+                </button>
+              </div>
+
+              {/* Text Formatter Option: Bold, Italic, Underline (Clean - No extra buttons) */}
               <div className="formatting-btn-group" title="ટેક્સ્ટ ફોર્મેટિંગ (લખાણ સિલેક્ટ કરીને બોલ્ડ / ઇટાલિક / અંડરલાઇન કરો)">
                 <button
                   type="button"
@@ -1839,6 +2057,7 @@ export default function DocumentStudio({
                 </button>
               </div>
 
+
               {/* Undo / Redo Tools (Icon Only) */}
               <div className="formatting-btn-group" title="ફેરફારો પૂર્વવત (Undo / Redo)">
                 <button
@@ -1866,8 +2085,8 @@ export default function DocumentStudio({
 
             {/* Action Export Buttons */}
             <div className="toolbar-actions">
-              <button 
-                className="btn-secondary" 
+              <button
+                className="btn-secondary"
                 onClick={handleCopy}
                 title="તમામ લખાણ કોપી કરો"
               >
@@ -1875,8 +2094,8 @@ export default function DocumentStudio({
                 <span>{copied ? 'કોપી થયું!' : 'કોપી'}</span>
               </button>
 
-              <button 
-                className="btn-secondary" 
+              <button
+                className="btn-secondary"
                 onClick={handleExportWord}
                 title="Microsoft Word (.docx) ફોર્મેટમાં ડાઉનલોડ"
               >
@@ -1884,8 +2103,8 @@ export default function DocumentStudio({
                 <span>Word (.docx)</span>
               </button>
 
-              <button 
-                className="btn-primary" 
+              <button
+                className="btn-primary"
                 onClick={handlePrint}
                 title="A4 / Legal કાગળ પર પ્રિન્ટ કાઢો અથવા PDF તરીકે સેવ કરો"
               >
@@ -1899,7 +2118,7 @@ export default function DocumentStudio({
           <div className="toolbar-row secondary-toolbar-row">
             <div className="toolbar-group flex-wrap-group">
               {/* Page Setup Button */}
-              <button 
+              <button
                 className="tool-toggle-btn"
                 onClick={() => setIsPageSetupOpen(true)}
                 title="પેજ સાઇઝ (A4 / Legal), માર્જિન અને પ્રિન્ટ સ્પેસિંગ ગોઠવો"
@@ -1908,8 +2127,19 @@ export default function DocumentStudio({
                 <span>પેજ સેટઅપ ({pageSetup.paperSize})</span>
               </button>
 
+              {/* Footer Customization Menu Button */}
+              <button
+                type="button"
+                className={`tool-toggle-btn ${pageSetup.footerSetup?.enabled !== false ? 'active' : ''}`}
+                onClick={() => setIsFooterMenuOpen(true)}
+                title="દસ્તાવેજના ફૂટરનું કસ્ટમાઇઝેશન (પાના નંબર, અસીલ નામ, તારીખ, વકીલ સહી, લાઇન સ્ટાઇલ)"
+              >
+                <Layout size={13} />
+                <span>ફૂટર મેનુ {pageSetup.footerSetup?.enabled === false ? '(બંધ)' : ''}</span>
+              </button>
+
               {/* Stamp Paper Mode Toggle */}
-              <button 
+              <button
                 className={`tool-toggle-btn ${stampPaperMode ? 'active' : ''}`}
                 onClick={() => setStampPaperMode(!stampPaperMode)}
                 title="સરકારી ₹ ૫૦ / ₹ ૧૦૦ / ₹ ૩૦૦ ના સ્ટેમ્પ પેપર પર પ્રિન્ટ માટે ઉપરથી માર્જિન છોડો"
@@ -1921,11 +2151,11 @@ export default function DocumentStudio({
               {stampPaperMode && (
                 <div className="stamp-offset-slider-box">
                   <span className="stamp-offset-label">ઓફસેટ:</span>
-                  <input 
-                    type="range" 
-                    min="60" 
-                    max="140" 
-                    value={stampMarginMm} 
+                  <input
+                    type="range"
+                    min="60"
+                    max="140"
+                    value={stampMarginMm}
                     onChange={e => setStampMarginMm(Number(e.target.value))}
                     className="stamp-range-input"
                   />
@@ -1934,7 +2164,7 @@ export default function DocumentStudio({
               )}
 
               {/* On-Paper Live Editing Toggle */}
-              <button 
+              <button
                 className={`tool-toggle-btn ${isDirectEditMode ? 'active' : ''}`}
                 onClick={() => setIsDirectEditMode(!isDirectEditMode)}
                 title="કાગળ પર સીધું ક્લિક કરીને લખાણ સુધારો (On-Paper Editing)"
@@ -1944,7 +2174,7 @@ export default function DocumentStudio({
               </button>
 
               {/* Page Break Inserter */}
-              <button 
+              <button
                 className="tool-toggle-btn"
                 onMouseDown={e => e.preventDefault()}
                 onClick={handleInsertPageBreak}
@@ -1955,13 +2185,13 @@ export default function DocumentStudio({
               </button>
 
               {/* Digital QR Verification Toggle */}
-              <button 
+              <button
                 type="button"
                 className={`tool-toggle-btn ${pageSetup.showVerificationQR !== false ? 'active' : ''}`}
                 onClick={() => {
-                  const updated = { 
-                    ...pageSetup, 
-                    showVerificationQR: pageSetup.showVerificationQR === false ? true : false 
+                  const updated = {
+                    ...pageSetup,
+                    showVerificationQR: pageSetup.showVerificationQR === false ? true : false
                   };
                   handleSavePageSetup(updated);
                 }}
@@ -1972,13 +2202,13 @@ export default function DocumentStudio({
               </button>
 
               {/* Watermark 1-Click Quick Toggle */}
-              <button 
+              <button
                 type="button"
                 className={`tool-toggle-btn ${pageSetup.showWatermark ? 'active' : ''}`}
                 onClick={() => {
-                  const updated = { 
-                    ...pageSetup, 
-                    showWatermark: !pageSetup.showWatermark 
+                  const updated = {
+                    ...pageSetup,
+                    showWatermark: !pageSetup.showWatermark
                   };
                   handleSavePageSetup(updated);
                 }}
@@ -1991,7 +2221,7 @@ export default function DocumentStudio({
               {/* Pedhinamu Specific Toggles */}
               {isPedhinamu && (
                 <>
-                  <button 
+                  <button
                     type="button"
                     className={`tool-toggle-btn ${showTreeMap ? 'active' : ''}`}
                     onClick={() => setShowTreeMap(!showTreeMap)}
@@ -2001,7 +2231,7 @@ export default function DocumentStudio({
                     <span>આંબો (Tree): {showTreeMap ? 'ચાલુ' : 'બંધ'}</span>
                   </button>
 
-                  <button 
+                  <button
                     type="button"
                     className={`tool-toggle-btn ${showTable ? 'active' : ''}`}
                     onClick={() => setShowTable(!showTable)}
@@ -2014,7 +2244,7 @@ export default function DocumentStudio({
               )}
 
               {customDirectHtml !== null && (
-                <button 
+                <button
                   className="tool-toggle-btn btn-reset-custom"
                   onClick={handleResetDirectEdit}
                   title="ડાયરેક્ટ કરેલા સુધારા રદ કરી મૂળ ફોર્મ મુજબ કરવું"
@@ -2029,9 +2259,9 @@ export default function DocumentStudio({
             {/* Zoom Segmented Control & Fullscreen Toggle */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
               <div className="zoom-segmented-control">
-                <button 
+                <button
                   type="button"
-                  className="zoom-btn" 
+                  className="zoom-btn"
                   onClick={() => setZoomLevel(Math.max(60, zoomLevel - 10))}
                   title="Zoom Out (-10%)"
                 >
@@ -2040,9 +2270,9 @@ export default function DocumentStudio({
                 <span className="zoom-text">
                   {zoomLevel}%
                 </span>
-                <button 
+                <button
                   type="button"
-                  className="zoom-btn" 
+                  className="zoom-btn"
                   onClick={() => setZoomLevel(Math.min(140, zoomLevel + 10))}
                   title="Zoom In (+10%)"
                 >
@@ -2086,8 +2316,8 @@ export default function DocumentStudio({
               const sheetWidth = `${paperStyle.widthMm || 210}mm`;
               const sheetMinHeight = isContinuous ? 'auto' : `${paperStyle.heightMm || 297}mm`;
               const isFirstPage = index === 0;
-              const effectiveTopMarginMm = (isFirstPage && stampPaperMode) 
-                ? stampMarginMm 
+              const effectiveTopMarginMm = (isFirstPage && stampPaperMode)
+                ? stampMarginMm
                 : (pageSetup.marginTopMm ?? pageSetup.marginTop ?? 25);
               const bottomMarginMm = pageSetup.marginBottomMm ?? pageSetup.marginBottom ?? 25;
               const leftMarginMm = pageSetup.marginLeftMm ?? pageSetup.marginLeft ?? 28;
@@ -2098,8 +2328,8 @@ export default function DocumentStudio({
               const fontFamily = activeFont?.family || activeFont?.fontFamily || "'Noto Serif Gujarati', 'Times New Roman', serif";
 
               return (
-                <div 
-                  key={index} 
+                <div
+                  key={index}
                   className={`legal-sheet ${isContinuous ? 'continuous-mode' : ''} ${isFirstPage && stampPaperMode ? 'stamp-paper-mode' : ''}`}
                   style={{
                     width: sheetWidth,
@@ -2117,8 +2347,8 @@ export default function DocumentStudio({
                 >
                   {/* First Page Visual Stamp Placeholder */}
                   {isFirstPage && stampPaperMode && (
-                    <div 
-                      className="stamp-paper-placeholder-zone no-print" 
+                    <div
+                      className="stamp-paper-placeholder-zone no-print"
                       style={{ height: `${stampMarginMm}mm` }}
                     >
                       <div className="stamp-zone-content">
@@ -2140,15 +2370,35 @@ export default function DocumentStudio({
                     </div>
                   )}
 
-                  {/* Diagonal Watermark Overlay (Draft / Office Copy) */}
-                  {pageSetup.showWatermark && (
-                    <div className="doc-watermark-overlay no-select">
-                      {pageSetup.watermarkText || 'કાચો મુસદ્દો / DRAFT'}
-                    </div>
-                  )}
+                  {/* Diagonal Watermark Overlay (Draft / Office Copy with Auto-Wrapping & Dynamic Font Scaling) */}
+                  {pageSetup.showWatermark && (() => {
+                    const wmText = pageSetup.watermarkText || 'કાચો મુસદ્દો / DRAFT';
+                    const len = wmText.length;
+                    let dynFontSize = '3.2rem';
+                    if (len > 50) {
+                      dynFontSize = '2.3rem';
+                    } else if (len > 30) {
+                      dynFontSize = '2.65rem';
+                    } else if (len > 18) {
+                      dynFontSize = '2.95rem';
+                    }
+
+                    return (
+                      <div className="doc-watermark-container">
+                        <div
+                          className="doc-watermark-overlay no-select"
+                          style={{ fontSize: dynFontSize }}
+                        >
+                          {wmText}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+
 
                   {/* Rendered Live Page Body (Supports Direct On-Paper Editing & Formatting) */}
-                  <div 
+                  <div
                     className="document-body"
                     contentEditable={isDirectEditMode}
                     suppressContentEditableWarning={true}
@@ -2164,9 +2414,16 @@ export default function DocumentStudio({
                         } else if (e.ctrlKey && (e.key === 'u' || e.key === 'U')) {
                           e.preventDefault();
                           handleFormatText('underline');
+                        } else if (e.ctrlKey && (e.key === ']' || e.key === '}')) {
+                          e.preventDefault();
+                          handleUnifiedFontSizeChange(1);
+                        } else if (e.ctrlKey && (e.key === '[' || e.key === '{')) {
+                          e.preventDefault();
+                          handleUnifiedFontSizeChange(-1);
                         } else {
                           handlePhoneticKeyDown(e, isPhoneticActive);
                         }
+
                       }
                     }}
                     dangerouslySetInnerHTML={{ __html: pageHtml }}
@@ -2195,21 +2452,34 @@ export default function DocumentStudio({
                     </div>
                   )}
 
-                  {/* Page Footer */}
-                  {pageSetup.showPageNumbers !== false && (
-                    <div className="page-footer-indicator">
-                      {isContinuous ? (
-                        <span>સળંગ પેપર મોડ (Continuous View)</span>
-                      ) : (
-                        <>
-                          <span>પાનું નં. {index + 1} / {pages.length}</span>
-                          {pages.length > 1 && index < pages.length - 1 && (
-                            <span>(ક્રમશઃ પાના નં. {index + 2} ઉપર...)</span>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
+                  {/* Page Footer Customization */}
+                  {(() => {
+                    if (pageSetup.showPageNumbers === false) return null;
+                    const footerData = formatFooterContent({
+                      footerSetup: pageSetup.footerSetup,
+                      pageIndex: index,
+                      totalPages: pages.length,
+                      isContinuous,
+                      documentTitle: currentTemplate?.title || 'દસ્તાવેજ',
+                      clientName: isPedhinamu ? applicantName : (formValues['અરજદારનું_નામ'] || formValues['વેચનારનું_પૂરું_નામ'] || formValues['લખી_આપનાર_નામ'] || formValues['પ્રથમ_પક્ષકાર_નામ'] || formValues['Applicant_Name'] || ''),
+                      date: formValues['તારીખ'] || formValues['Date'] || new Date().toLocaleDateString('gu-IN'),
+                      advocateName: userSettings?.advocateName || formValues['એડવોકેટ_નામ'] || formValues['નોટરી_એડવોકેટ_નામ'] || ''
+                    });
+
+                    if (!footerData) return null;
+
+                    return (
+                      <div
+                        className={`page-footer-indicator footer-border-${footerData.borderStyle} footer-size-${footerData.fontSize}`}
+                        onClick={() => setIsFooterMenuOpen(true)}
+                        title="ફૂટર બદલવા માટે અહીં ક્લિક કરો (Footer Customization Menu)"
+                      >
+                        <div className="footer-col-left">{footerData.left}</div>
+                        <div className="footer-col-center">{footerData.center}</div>
+                        <div className="footer-col-right">{footerData.right}</div>
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
@@ -2225,12 +2495,32 @@ export default function DocumentStudio({
       />
 
       {/* Page Setup Configuration Modal */}
-      <PageSetupModal 
+      <PageSetupModal
         isOpen={isPageSetupOpen}
         onClose={() => setIsPageSetupOpen(false)}
         pageSetup={pageSetup}
         onSave={handleSavePageSetup}
         onSavePageSetup={handleSavePageSetup}
+        onOpenFooterCustomizer={() => {
+          setIsPageSetupOpen(false);
+          setIsFooterMenuOpen(true);
+        }}
+      />
+
+      {/* Footer Customization Modal */}
+      <FooterCustomizationModal
+        isOpen={isFooterMenuOpen}
+        onClose={() => setIsFooterMenuOpen(false)}
+        footerSetup={pageSetup.footerSetup}
+        onSaveFooterSetup={(newFooter) => {
+          handleSavePageSetup({
+            ...pageSetup,
+            footerSetup: newFooter
+          });
+        }}
+        documentTitle={currentTemplate?.title || 'દસ્તાવેજ'}
+        clientName={isPedhinamu ? applicantName : (formValues['અરજદારનું_નામ'] || formValues['વેચનારનું_પૂરું_નામ'] || formValues['લખી_આપનાર_નામ'] || formValues['પ્રથમ_પક્ષકાર_નામ'] || formValues['Applicant_Name'] || '')}
+        advocateName={userSettings?.advocateName || formValues['એડવોકેટ_નામ'] || formValues['નોટરી_એડવોકેટ_નામ'] || ''}
       />
     </div>
   );

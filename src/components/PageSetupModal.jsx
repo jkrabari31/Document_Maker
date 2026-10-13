@@ -27,7 +27,8 @@ export default function PageSetupModal({
   onClose, 
   pageSetup = {}, 
   onSave,
-  onSavePageSetup 
+  onSavePageSetup,
+  onOpenFooterCustomizer 
 }) {
   if (!isOpen) return null;
 
@@ -308,18 +309,42 @@ export default function PageSetupModal({
             </p>
           </div>
 
-          {/* Show Page Numbers */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <input 
-              type="checkbox"
-              id="showPageNumCheck"
-              checked={showPageNumbers}
-              onChange={e => setShowPageNumbers(e.target.checked)}
-              style={{ width: '16px', height: '16px', accentColor: 'var(--primary)' }}
-            />
-            <label htmlFor="showPageNumCheck" style={{ fontSize: '0.84rem', color: 'var(--text-main)', cursor: 'pointer' }}>
-              દરેક પેજના નીચે પેજ નંબર દર્શાવો (દા.ત. "પેજ ૧ / ૨", "પેજ ૨ / ૨")
-            </label>
+          {/* Show Page Numbers & Footer Customizer Button */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <input 
+                type="checkbox"
+                id="showPageNumCheck"
+                checked={showPageNumbers}
+                onChange={e => setShowPageNumbers(e.target.checked)}
+                style={{ width: '16px', height: '16px', accentColor: 'var(--primary)' }}
+              />
+              <label htmlFor="showPageNumCheck" style={{ fontSize: '0.84rem', color: 'var(--text-main)', cursor: 'pointer' }}>
+                દરેક પેજના નીચે ફૂટર / પેજ નંબર દર્શાવો
+              </label>
+            </div>
+            {onOpenFooterCustomizer && (
+              <button
+                type="button"
+                onClick={onOpenFooterCustomizer}
+                style={{
+                  fontSize: '0.78rem',
+                  color: '#1d4ed8',
+                  background: '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  padding: '0.22rem 0.65rem',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title="ફૂટર લખાણ, પક્ષકાર નામ, તારીખ, વકીલ સહી અને લાઇન સ્ટાઇલ કસ્ટમાઇઝ કરો"
+              >
+                ⚙️ ફૂટર કસ્ટમાઇઝ મેનુ
+              </button>
+            )}
           </div>
 
           {/* Show Verification QR Code */}
@@ -378,18 +403,19 @@ export default function PageSetupModal({
                     </button>
                   ))}
                 </div>
-                <input 
-                  type="text"
+                <textarea 
                   className="input-control"
-                  style={{ fontSize: '0.84rem', padding: '0.4rem 0.65rem' }}
-                  placeholder="કસ્ટમ વોટરમાર્ક લખાણ દાખલ કરો (દા.ત. ADVOCATE DRAFT)..."
+                  rows="2"
+                  style={{ fontSize: '0.84rem', padding: '0.4rem 0.65rem', resize: 'vertical' }}
+                  placeholder="કસ્ટમ વોટરમાર્ક લખાણ દાખલ કરો (લાંબુ લખાણ આપોઆપ નીચેની લીટીમાં આવી જશે)..."
                   value={watermarkText}
                   onChange={e => setWatermarkText(e.target.value)}
                 />
                 <span style={{ fontSize: '0.70rem', color: '#64748b' }}>
-                  * અસીલને ડ્રાફ્ટ વાંચવા આપવા માટે કાગળની વચ્ચે આછો ત્રાંસો વોટરમાર્ક પ્રિન્ટ થશે.
+                  * અસીલને ડ્રાફ્ટ વાંચવા આપવા માટે કાગળની વચ્ચે આછો ત્રાંસો વોટરમાર્ક રહેશે. લાંબુ લખાણ આપોઆપ કાગળની મર્યાદામાં નીચેની લાઈનમાં લપેટાઈ (Auto-wrap) જશે.
                 </span>
               </div>
+
             )}
           </div>
         </div>

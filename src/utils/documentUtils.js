@@ -266,6 +266,17 @@ export function saveUserSettings(settings) {
 
 const STORAGE_KEY_PAGE_SETUP = "dastavej_master_pagesetup_v1";
 
+export const DEFAULT_FOOTER_SETUP = {
+  enabled: true,
+  leftText: '',
+  centerText: 'પાનું નં. {page} / {total}',
+  rightText: '',
+  showPageNumbers: true,
+  showContinuation: true,
+  borderStyle: 'dashed', // 'dashed' | 'solid' | 'none'
+  fontSize: 'small'      // 'small' | 'medium' | 'normal'
+};
+
 export function loadPageSetup() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_PAGE_SETUP);
@@ -288,9 +299,11 @@ export function loadPageSetup() {
       showVerificationQR: true,
       showWatermark: false,
       watermarkText: "કાચો મુસદ્દો / DRAFT",
+      footerSetup: { ...DEFAULT_FOOTER_SETUP },
       viewMode: "pages" // 'pages' (Real Multi-Sheet) | 'continuous'
     };
     const parsed = JSON.parse(raw);
+    const parsedFooter = parsed.footerSetup || {};
     return {
       paperSize: parsed.paperSize || "A4",
       paperWidthMm: parsed.paperWidthMm || 210,
@@ -310,6 +323,16 @@ export function loadPageSetup() {
       showVerificationQR: parsed.showVerificationQR ?? true,
       showWatermark: parsed.showWatermark ?? false,
       watermarkText: parsed.watermarkText || "કાચો મુસદ્દો / DRAFT",
+      footerSetup: {
+        enabled: parsedFooter.enabled ?? (parsed.showPageNumbers ?? true),
+        leftText: parsedFooter.leftText || '',
+        centerText: parsedFooter.centerText ?? 'પાનું નં. {page} / {total}',
+        rightText: parsedFooter.rightText || '',
+        showPageNumbers: parsedFooter.showPageNumbers ?? true,
+        showContinuation: parsedFooter.showContinuation ?? true,
+        borderStyle: parsedFooter.borderStyle || 'dashed',
+        fontSize: parsedFooter.fontSize || 'small'
+      },
       viewMode: parsed.viewMode || "pages"
     };
   } catch (e) {
@@ -332,6 +355,7 @@ export function loadPageSetup() {
       showVerificationQR: true,
       showWatermark: false,
       watermarkText: "કાચો મુસદ્દો / DRAFT",
+      footerSetup: { ...DEFAULT_FOOTER_SETUP },
       viewMode: "pages"
     };
   }
@@ -339,6 +363,7 @@ export function loadPageSetup() {
 
 export function savePageSetup(setup) {
   try {
+    const fs = setup.footerSetup || DEFAULT_FOOTER_SETUP;
     const standardized = {
       paperSize: setup.paperSize || "A4",
       paperWidthMm: setup.paperWidthMm || 210,
@@ -358,6 +383,16 @@ export function savePageSetup(setup) {
       showVerificationQR: setup.showVerificationQR ?? true,
       showWatermark: setup.showWatermark ?? false,
       watermarkText: setup.watermarkText || "કાચો મુસદ્દો / DRAFT",
+      footerSetup: {
+        enabled: fs.enabled ?? true,
+        leftText: fs.leftText || '',
+        centerText: fs.centerText ?? 'પાનું નં. {page} / {total}',
+        rightText: fs.rightText || '',
+        showPageNumbers: fs.showPageNumbers ?? true,
+        showContinuation: fs.showContinuation ?? true,
+        borderStyle: fs.borderStyle || 'dashed',
+        fontSize: fs.fontSize || 'small'
+      },
       viewMode: setup.viewMode || "pages"
     };
     localStorage.setItem(STORAGE_KEY_PAGE_SETUP, JSON.stringify(standardized));
@@ -365,6 +400,57 @@ export function savePageSetup(setup) {
   } catch (e) {
     return false;
   }
+}
+
+/**
+ * Formats customized footer content for a specific document sheet
+ */
+export function formatFooterContent({
+  footerSetup,
+  pageIndex,
+  totalPages,
+  isContinuous,
+  documentTitle = '',
+  clientName = '',
+  date = '',
+  advocateName = ''
+}) {
+  const fs = footerSetup || DEFAULT_FOOTER_SETUP;
+  if (fs.enabled === false) return null;
+
+  const pageNum = pageIndex + 1;
+  const nextNum = pageIndex + 2;
+  const isLastPage = pageIndex >= totalPages - 1;
+
+  const replaceTags = (text) => {
+    if (!text) return '';
+    return text
+      .replace(/\{page\}/g, String(pageNum))
+      .replace(/\{total\}/g, String(totalPages))
+      .replace(/\{next\}/g, String(nextNum))
+      .replace(/\{title\}/g, documentTitle || '')
+      .replace(/\{client\}/g, clientName || '')
+      .replace(/\{date\}/g, date || '')
+      .replace(/\{advocate\}/g, advocateName || '');
+  };
+
+  const left = replaceTags(fs.leftText);
+  let center = isContinuous 
+    ? 'સળંગ પેપર મોડ (Continuous View)' 
+    : replaceTags(fs.centerText);
+  
+  let right = replaceTags(fs.rightText);
+  if (!right && fs.showContinuation !== false && !isContinuous && !isLastPage && totalPages > 1) {
+    right = `(ક્રમશઃ પાના નં. ${nextNum} ઉપર...)`;
+  }
+
+  return {
+    left,
+    center,
+    right,
+    borderStyle: fs.borderStyle || 'dashed',
+    fontSize: fs.fontSize || 'small'
+  };
 }
 
 /**

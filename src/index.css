@@ -576,6 +576,7 @@ textarea.input-control {
 }
 
 
+
 /* Zoom Segmented Control */
 .zoom-segmented-control {
   display: inline-flex;
@@ -712,6 +713,68 @@ textarea.input-control {
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
 }
 
+/* Font Size Stepper Controls */
+.font-size-stepper-box {
+  display: inline-flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.font-size-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: #f8fafc;
+  border: none;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.font-size-btn:hover:not(:disabled) {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.font-size-btn:active:not(:disabled) {
+  background: #cbd5e1;
+}
+
+.font-size-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: #f1f5f9;
+}
+
+.font-step-letter {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+
+.font-size-display-text {
+  min-width: 38px;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #0f172a;
+  padding: 0 0.35rem;
+  border-left: 1px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
+  background: #ffffff;
+  user-select: none;
+}
+
+
 .currency-calc-box {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
@@ -830,16 +893,70 @@ textarea.input-control {
 }
 
 .page-footer-indicator {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.5rem;
   font-size: 8.5pt;
   color: #64748b;
   border-top: 1px dashed #cbd5e1;
   padding-top: 5pt;
   margin-top: auto;
   font-family: var(--font-main);
+  transition: background-color 0.2s, border-color 0.2s;
+  cursor: pointer;
+  position: relative;
 }
+
+.page-footer-indicator:hover {
+  background-color: rgba(37, 99, 235, 0.04);
+  border-color: #93c5fd;
+  border-radius: 4px;
+}
+
+.page-footer-indicator.footer-border-none {
+  border-top: none;
+}
+
+.page-footer-indicator.footer-border-solid {
+  border-top: 1px solid #94a3b8;
+}
+
+.page-footer-indicator.footer-border-dashed {
+  border-top: 1px dashed #cbd5e1;
+}
+
+.page-footer-indicator.footer-size-small {
+  font-size: 7.5pt;
+}
+
+.page-footer-indicator.footer-size-medium {
+  font-size: 8.8pt;
+}
+
+.page-footer-indicator.footer-size-large {
+  font-size: 10pt;
+}
+
+.footer-col-left {
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.footer-col-center {
+  text-align: center;
+  font-weight: 600;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.footer-col-right {
+  text-align: right;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 
 .sheet-page-header-tag {
   position: absolute;
@@ -1698,27 +1815,46 @@ textarea.input-control {
 /* =========================================================================
    DOCUMENT WATERMARK (DRAFT / OFFICE COPY OVERLAY)
    ========================================================================= */
+.doc-watermark-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 10;
+  border-radius: inherit;
+}
+
 .doc-watermark-overlay {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%) rotate(-32deg);
-  font-size: 3.4rem;
+  font-size: 3.2rem;
   font-weight: 900;
-  color: rgba(100, 116, 139, 0.14);
-  letter-spacing: 5px;
+  color: rgba(100, 116, 139, 0.13);
+  letter-spacing: 3px;
   text-transform: uppercase;
   pointer-events: none;
   user-select: none;
-  z-index: 10;
-  white-space: nowrap;
+  white-space: pre-wrap;
+  word-break: normal;
+  overflow-wrap: break-word;
   text-align: center;
-  border: 4px dashed rgba(100, 116, 139, 0.16);
-  padding: 0.8rem 2.5rem;
+  border: 4px dashed rgba(100, 116, 139, 0.15);
+  padding: 0.9rem 2.5rem;
   border-radius: 14px;
-  line-height: 1.15;
+  line-height: 1.25;
   font-family: inherit;
+  width: max-content;
+  max-width: 90%;
+  box-sizing: border-box;
+  display: inline-block;
 }
+
+
 
 /* =========================================================================
    PRINT ENGINE OPTIMIZATION - CRITICAL FOR ADVOCATES & STAMP PAPER PRINTING
@@ -1823,11 +1959,27 @@ textarea.input-control {
     color: #000000 !important;
   }
 
+  .doc-watermark-container {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+  }
+
   .doc-watermark-overlay {
-    display: block !important;
+    display: inline-block !important;
+    max-width: 90% !important;
+    white-space: pre-wrap !important;
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
     color: rgba(0, 0, 0, 0.10) !important;
-    border-color: rgba(0, 0, 0, 0.12) !important;
+    border-color: rgba(0, 0, 0, 0.13) !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
+
+
 }

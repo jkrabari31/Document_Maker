@@ -1,4 +1,5 @@
 // Utility functions for variable extraction, template rendering, and file export
+import html2pdf from 'html2pdf.js';
 
 /**
  * Extracts all unique placeholder variables from text formatted as {{variable_name}}
@@ -143,15 +144,84 @@ ${wordContent}
 }
 
 /**
- * Save / Load helpers for LocalStorage
+ * Direct PDF Download utility using html2pdf.js
  */
-const STORAGE_KEY_TEMPLATES = "dastavej_master_templates_v1";
-const STORAGE_KEY_RECORDS = "dastavej_master_records_v1";
+export async function exportToPdf(filename, elementOrSelector, options = {}) {
+  let targetElement = null;
+  if (typeof elementOrSelector === 'string') {
+    targetElement = document.querySelector(elementOrSelector);
+  } else if (elementOrSelector instanceof HTMLElement) {
+    targetElement = elementOrSelector;
+  }
+
+  if (!targetElement) {
+    throw new Error('PDF ડાઉનલોડ કરવા માટે દસ્તાવેજ મળ્યો નથી.');
+  }
+
+  // Clone element to sanitize for clean PDF generation
+  const clone = targetElement.cloneNode(true);
+  
+  // Remove any interactive UI elements with .no-print
+  const noPrintEls = clone.querySelectorAll('.no-print, button, .sub-modal-overlay');
+  noPrintEls.forEach(el => el.remove());
+
+  // Ensure contentEditable is disabled on clone
+  const editables = clone.querySelectorAll('[contenteditable]');
+  editables.forEach(el => el.removeAttribute('contenteditable'));
+
+  // Wrap clone in an isolated staging div
+  const stagingWrapper = document.createElement('div');
+  stagingWrapper.style.position = 'absolute';
+  stagingWrapper.style.left = '-99999px';
+  stagingWrapper.style.top = '0';
+  stagingWrapper.style.background = '#ffffff';
+  stagingWrapper.appendChild(clone);
+  document.body.appendChild(stagingWrapper);
+
+  const paperFormat = options.paperSize === 'legal' ? 'legal' : 'a4';
+
+  const opt = {
+    margin: options.margin !== undefined ? options.margin : [8, 8, 8, 8],
+    filename: `${filename || 'document'}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      letterRendering: true,
+      logging: false,
+      scrollY: 0
+    },
+    jsPDF: {
+      unit: 'mm',
+      format: paperFormat,
+      orientation: 'portrait'
+    },
+    pagebreak: { mode: ['css', 'legacy'] }
+  };
+
+  try {
+    await html2pdf().set(opt).from(clone).save();
+  } finally {
+    document.body.removeChild(stagingWrapper);
+  }
+}
+
+/**
+ * Save / Load helpers for LocalStorage (User-scoped)
+ */
+export function getTemplatesStorageKey(userId) {
+  return userId ? `dastavej_master_templates_${userId}` : "dastavej_master_templates_v1";
+}
+export function getRecordsStorageKey(userId) {
+  return userId ? `dastavej_master_records_${userId}` : "dastavej_master_records_v1";
+}
+
 const STORAGE_KEY_SETTINGS = "dastavej_master_settings_v1";
 
-export function loadSavedTemplates(initialTemplates) {
+export function loadSavedTemplates(initialTemplates, userId) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_TEMPLATES);
+    const key = getTemplatesStorageKey(userId);
+    const raw = localStorage.getItem(key);
     if (!raw) return initialTemplates;
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed) || parsed.length === 0) return initialTemplates;
@@ -173,9 +243,10 @@ export function loadSavedTemplates(initialTemplates) {
   }
 }
 
-export function saveTemplatesToStorage(templates) {
+export function saveTemplatesToStorage(templates, userId) {
   try {
-    localStorage.setItem(STORAGE_KEY_TEMPLATES, JSON.stringify(templates));
+    const key = getTemplatesStorageKey(userId);
+    localStorage.setItem(key, JSON.stringify(templates));
     return true;
   } catch (e) {
     console.error("Failed to save templates to localStorage", e);
@@ -183,9 +254,10 @@ export function saveTemplatesToStorage(templates) {
   }
 }
 
-export function loadSavedRecords() {
+export function loadSavedRecords(userId) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_RECORDS);
+    const key = getRecordsStorageKey(userId);
+    const raw = localStorage.getItem(key);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
@@ -195,9 +267,9 @@ export function loadSavedRecords() {
   }
 }
 
-export function saveRecordToStorage(record) {
+export function saveRecordToStorage(record, userId) {
   try {
-    const records = loadSavedRecords();
+    const records = loadSavedRecords(userId);
     const existingIndex = records.findIndex(r => r.id === record.id);
     if (existingIndex >= 0) {
       records[existingIndex] = { ...records[existingIndex], ...record, updatedAt: new Date().toISOString() };
@@ -209,7 +281,8 @@ export function saveRecordToStorage(record) {
         updatedAt: new Date().toISOString()
       });
     }
-    localStorage.setItem(STORAGE_KEY_RECORDS, JSON.stringify(records));
+    const key = getRecordsStorageKey(userId);
+    localStorage.setItem(key, JSON.stringify(records));
     return true;
   } catch (e) {
     console.error("Failed to save record to storage", e);
@@ -217,17 +290,19 @@ export function saveRecordToStorage(record) {
   }
 }
 
-export function deleteRecordFromStorage(recordId) {
+export function deleteRecordFromStorage(recordId, userId) {
   try {
-    const records = loadSavedRecords();
+    const records = loadSavedRecords(userId);
     const filtered = records.filter(r => r.id !== recordId);
-    localStorage.setItem(STORAGE_KEY_RECORDS, JSON.stringify(filtered));
+    const key = getRecordsStorageKey(userId);
+    localStorage.setItem(key, JSON.stringify(filtered));
     return filtered;
   } catch (e) {
     console.error("Failed to delete record", e);
     return [];
   }
 }
+
 
 export function loadUserSettings() {
   try {

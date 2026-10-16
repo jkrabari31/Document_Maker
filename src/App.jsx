@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from './contexts/AuthContext';
 import Navbar from './components/Navbar';
 import DocumentStudio from './components/DocumentStudio';
 import TemplateLibrary from './components/TemplateLibrary';
@@ -7,34 +8,55 @@ import ClientRecords from './components/ClientRecords';
 import StampGuideModal from './components/StampGuideModal';
 import AdvocateSettingsModal from './components/AdvocateSettingsModal';
 import StampDutyCalculatorModal from './components/StampDutyCalculatorModal';
+import AuthPage from './components/AuthPage';
+import AdminPortal from './components/AdminPortal';
+import OpenWriter from './components/OpenWriter';
 import { initialTemplates } from './data/initialTemplates';
 import { 
   loadSavedTemplates, 
   saveTemplatesToStorage, 
   loadSavedRecords, 
   deleteRecordFromStorage,
-  loadUserSettings 
+  loadUserSettings,
+  getRecordsStorageKey 
 } from './utils/documentUtils';
 
+// Admin emails — must match AdminPortal.jsx
+const ADMIN_EMAILS = ['jaimin3460@gmail.com', 'admin@dastavej.com'];
+
 export default function App() {
+  const { currentUser, loading: authLoading } = useAuth();
+
   const [activeTab, setActiveTab] = useState('studio');
-  const [templates, setTemplates] = useState(() => loadSavedTemplates(initialTemplates));
+  const [templates, setTemplates] = useState(() => loadSavedTemplates(initialTemplates, currentUser?.uid));
   const [currentTemplate, setCurrentTemplate] = useState(() => {
-    const list = loadSavedTemplates(initialTemplates);
+    const list = loadSavedTemplates(initialTemplates, currentUser?.uid);
     return list[0] || initialTemplates[0];
   });
   const [editingTemplate, setEditingTemplate] = useState(null);
-  const [records, setRecords] = useState(() => loadSavedRecords());
+  const [records, setRecords] = useState(() => loadSavedRecords(currentUser?.uid));
   const [userSettings, setUserSettings] = useState(() => loadUserSettings());
 
   const [isStampGuideOpen, setIsStampGuideOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isStampCalcOpen, setIsStampCalcOpen] = useState(false);
 
-  // Sync templates to storage on change
+  const isAdmin = currentUser?.email && ADMIN_EMAILS.includes(currentUser.email.toLowerCase());
+
+  // Reload templates & records when current user changes (user isolation)
   useEffect(() => {
-    saveTemplatesToStorage(templates);
-  }, [templates]);
+    if (currentUser?.uid) {
+      const userTemplates = loadSavedTemplates(initialTemplates, currentUser.uid);
+      setTemplates(userTemplates);
+      setCurrentTemplate(userTemplates[0] || initialTemplates[0]);
+      setRecords(loadSavedRecords(currentUser.uid));
+    }
+  }, [currentUser?.uid]);
+
+  // Sync templates to storage on change for this specific user
+  useEffect(() => {
+    saveTemplatesToStorage(templates, currentUser?.uid);
+  }, [templates, currentUser?.uid]);
 
   // Handlers for switching views and managing data
   const handleOpenPedhinamu = () => {
@@ -87,7 +109,7 @@ export default function App() {
   };
 
   const handleRecordSaved = () => {
-    setRecords(loadSavedRecords());
+    setRecords(loadSavedRecords(currentUser?.uid));
   };
 
   const handleLoadRecord = (record) => {
@@ -112,17 +134,18 @@ export default function App() {
 
   const handleDeleteRecord = (recordId) => {
     if (window.confirm("શું તમે આ અસીલ રેકોર્ડ ડિલીટ કરવા માંગો છો?")) {
-      const updated = deleteRecordFromStorage(recordId);
+      const updated = deleteRecordFromStorage(recordId, currentUser?.uid);
       setRecords(updated);
     }
   };
 
   const handleClearAllRecords = () => {
     if (window.confirm("ધ્યાન આપો: તમામ સાચવેલ અસીલ દસ્તાવેજો ડિલીટ થઈ જશે. શું તમે આગળ વધવા માંગો છો?")) {
-      localStorage.removeItem("dastavej_master_records_v1");
+      localStorage.removeItem(getRecordsStorageKey(currentUser?.uid));
       setRecords([]);
     }
   };
+
 
   // Export Templates to JSON
   const handleExportTemplates = () => {
@@ -179,6 +202,31 @@ export default function App() {
     dl.click();
   };
 
+  // Auth loading screen
+  if (authLoading) {
+    return (
+      <div className="auth-loading-screen">
+        <div className="auth-loading-spinner" />
+        <p>લોડ થઈ રહ્યું છે...</p>
+      </div>
+    );
+  }
+
+  // Show login page if not authenticated
+  if (!currentUser) {
+    return <AuthPage />;
+  }
+
+  // Admin portal view
+  if (activeTab === 'admin') {
+    return (
+      <>
+        <div className="bg-ambient" />
+        <AdminPortal onBack={() => setActiveTab('studio')} />
+      </>
+    );
+  }
+
   return (
     <>
       <div className="bg-ambient" />
@@ -191,6 +239,8 @@ export default function App() {
         onOpenStampGuide={() => setIsStampGuideOpen(true)}
         onOpenStampCalculator={() => setIsStampCalcOpen(true)}
         onBackupData={handleBackupAllData}
+        isAdmin={isAdmin}
+        onOpenAdmin={() => setActiveTab('admin')}
       />
 
       <main className="main-content">
@@ -202,6 +252,14 @@ export default function App() {
             onOpenTemplateLibrary={() => setActiveTab('templates')}
             userSettings={userSettings}
             onRecordSaved={handleRecordSaved}
+          />
+        )}
+
+        {activeTab === 'writer' && (
+          <OpenWriter 
+            userSettings={userSettings}
+            onRecordSaved={handleRecordSaved}
+            onBackToStudio={() => setActiveTab('studio')}
           />
         )}
 
@@ -255,3 +313,4 @@ export default function App() {
     </>
   );
 }
+

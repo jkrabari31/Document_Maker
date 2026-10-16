@@ -5,6 +5,7 @@ import {
   Calculator,
   Printer,
   Download,
+  FileDown,
   Copy,
   Check,
   RotateCcw,
@@ -44,6 +45,7 @@ import {
   renderDocument,
   cleanDocumentForExport,
   exportToWord,
+  exportToPdf,
   saveRecordToStorage,
   loadPageSetup,
   savePageSetup,
@@ -56,8 +58,10 @@ import { handlePhoneticKeyDown, transliterateWord } from '../utils/gujaratiTrans
 import PageSetupModal, { PAPER_SIZES } from './PageSetupModal';
 import GujaratiKeyPaletteModal from './GujaratiKeyPaletteModal';
 import FooterCustomizationModal from './FooterCustomizationModal';
-import { isSpeechSupported, createSpeechRecognizer } from '../utils/speechRecognition';
+import { isSpeechSupported, createSpeechRecognizer, setNativeInputValue } from '../utils/speechRecognition';
 import { generateDocumentQRDataUrl } from '../utils/qrVerification';
+import SubscriptionGuard from './SubscriptionGuard';
+import { useAuth } from '../contexts/AuthContext';
 
 /**
  * Generates the authentic Varsaai Pedhinamu HTML with Visual Family Tree and Table
@@ -279,6 +283,8 @@ export default function DocumentStudio({
     );
   }
 
+  const { isPremium, currentUser } = useAuth();
+
   // Check if current template is Pedhinamu
   const isPedhinamu = currentTemplate?.id === 'pedigree-heir-affidavit' ||
     currentTemplate?.isPedhinamu === true ||
@@ -313,6 +319,7 @@ export default function DocumentStudio({
   const [highlightEmpty, setHighlightEmpty] = useState(true);
   const [copied, setCopied] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   // Phonetic keyboard & font selection state
   const [isPhoneticActive, setIsPhoneticActive] = useState(true);
@@ -437,12 +444,13 @@ export default function DocumentStudio({
   const lastActiveInputRef = useRef(null);
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [selectedWordSize, setSelectedWordSize] = useState(null);
+  const [mobileStudioTab, setMobileStudioTab] = useState('form'); // 'form' | 'preview'
 
   // Track selection and focus for inserting characters from on-screen palette and font sizing
   useEffect(() => {
     const handleSelectionSave = () => {
       const sel = window.getSelection();
-      if (!sel || sel.rangeCount === 0 || sel.isCollapsed || !sel.toString().trim()) {
+      if (!sel || sel.rangeCount === 0) {
         setSelectedWordSize(null);
         return;
       }
@@ -451,12 +459,19 @@ export default function DocumentStudio({
       const container = range.commonAncestorContainer;
       const el = container.nodeType === 1 ? container : container.parentElement;
 
-      if (el && (el.isContentEditable || el.closest?.('[contenteditable="true"]'))) {
+      // Always track the current cursor or selection inside document-body
+      const docBody = el ? (el.classList?.contains('document-body') ? el : el.closest?.('.document-body')) : null;
+      if (docBody || (el && (el.isContentEditable || el.closest?.('[contenteditable="true"]')))) {
         lastSavedRangeRef.current = range.cloneRange();
         lastActiveInputRef.current = null;
       }
 
-      const docBody = el ? (el.classList?.contains('document-body') ? el : el.closest?.('.document-body')) : null;
+      // Font size inspection only when non-collapsed text is highlighted
+      if (sel.isCollapsed || !sel.toString().trim()) {
+        setSelectedWordSize(null);
+        return;
+      }
+
       if (docBody) {
         let sizePt = null;
         let probe = el;
@@ -496,7 +511,6 @@ export default function DocumentStudio({
     const handleFocusTrack = (e) => {
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
         lastActiveInputRef.current = e.target;
-        lastSavedRangeRef.current = null;
       }
     };
     document.addEventListener('focusin', handleFocusTrack);
@@ -504,11 +518,47 @@ export default function DocumentStudio({
   }, []);
 
   const handleInsertFromPalette = (char) => {
-    // 1. If in contentEditable (.document-body)
+    // 1. If user is in an input or textarea
+    let targetInput = null;
+    const activeEl = document.activeElement;
+    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+      targetInput = activeEl;
+    } else if (lastActiveInputRef.current && document.body.contains(lastActiveInputRef.current)) {
+      targetInput = lastActiveInputRef.current;
+    }
+
+    if (targetInput) {
+      lastActiveInputRef.current = targetInput;
+      const inp = targetInput;
+      const varKey = inp.getAttribute('data-var-key');
+      const start = typeof inp.selectionStart === 'number' ? inp.selectionStart : (inp.value?.length || 0);
+      const end = typeof inp.selectionEnd === 'number' ? inp.selectionEnd : (inp.value?.length || 0);
+      const val = inp.value || '';
+      const newVal = val.substring(0, start) + char + val.substring(end);
+
+      if (varKey) {
+        handleInputChange(varKey, newVal);
+      }
+      setNativeInputValue(inp, newVal);
+
+      const nextPos = start + char.length;
+      try {
+        inp.focus();
+        inp.setSelectionRange(nextPos, nextPos);
+      } catch (e) { }
+
+      setCustomDirectHtml(null);
+      return;
+    }
+
+    // 2. If in contentEditable (.document-body)
     if (lastSavedRangeRef.current) {
+      if (!isDirectEditMode) setIsDirectEditMode(true);
       const sel = window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(lastSavedRangeRef.current);
+      try {
+        sel.removeAllRanges();
+        sel.addRange(lastSavedRangeRef.current);
+      } catch (e) { }
       let ok = false;
       try {
         ok = document.execCommand('insertText', false, char);
@@ -528,23 +578,8 @@ export default function DocumentStudio({
           lastSavedRangeRef.current = sel.getRangeAt(0).cloneRange();
         }
       }
+      handleDirectEditBlur();
       return;
-    }
-
-    // 2. If in standard input or textarea
-    if (lastActiveInputRef.current) {
-      const inp = lastActiveInputRef.current;
-      if (typeof inp.selectionStart === 'number') {
-        const start = inp.selectionStart;
-        const end = inp.selectionEnd;
-        const val = inp.value || '';
-        const newVal = val.substring(0, start) + char + val.substring(end);
-        inp.value = newVal;
-        inp.dispatchEvent(new Event('input', { bubbles: true }));
-        inp.setSelectionRange(start + char.length, start + char.length);
-        inp.focus();
-        return;
-      }
     }
   };
 
@@ -553,57 +588,122 @@ export default function DocumentStudio({
     if (!text) return;
     const cleanText = text.trim() + ' ';
 
-    // 1. If in contentEditable (.document-body)
-    if (lastSavedRangeRef.current) {
-      const sel = window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(lastSavedRangeRef.current);
-      let ok = false;
+    // 1. Check if user is actively typing into an input/textarea
+    let targetInput = null;
+    const activeEl = document.activeElement;
+    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+      targetInput = activeEl;
+    } else if (lastActiveInputRef.current && document.body.contains(lastActiveInputRef.current) && !isDirectEditMode && !lastSavedRangeRef.current) {
+      targetInput = lastActiveInputRef.current;
+    }
+
+    if (targetInput) {
+      lastActiveInputRef.current = targetInput;
+      const inp = targetInput;
+      const varKey = inp.getAttribute('data-var-key');
+      const start = typeof inp.selectionStart === 'number' ? inp.selectionStart : (inp.value?.length || 0);
+      const end = typeof inp.selectionEnd === 'number' ? inp.selectionEnd : (inp.value?.length || 0);
+      const val = inp.value || '';
+      const newVal = val.substring(0, start) + cleanText + val.substring(end);
+
+      // Direct React state update for template parameter variable
+      if (varKey) {
+        handleInputChange(varKey, newVal);
+      }
+
+      // Native prototype setter ensures React's synthetic onChange event fires for ANY input
+      setNativeInputValue(inp, newVal);
+
+      // Keep focus and position cursor immediately after newly inserted text
+      const nextPos = start + cleanText.length;
       try {
-        ok = document.execCommand('insertText', false, cleanText);
+        inp.focus();
+        inp.setSelectionRange(nextPos, nextPos);
       } catch (e) { }
 
-      if (!ok) {
-        const node = document.createTextNode(cleanText);
-        lastSavedRangeRef.current.insertNode(node);
-        const newRange = document.createRange();
-        newRange.setStartAfter(node);
-        newRange.collapse(true);
-        sel.removeAllRanges();
-        sel.addRange(newRange);
-        lastSavedRangeRef.current = newRange.cloneRange();
-      } else {
-        if (sel.rangeCount > 0) {
-          lastSavedRangeRef.current = sel.getRangeAt(0).cloneRange();
-        }
-      }
+      // Reset direct custom HTML so preview immediately re-renders with new parameter values
+      setCustomDirectHtml(null);
+      setInterimVoiceText('');
       return;
     }
 
-    // 2. If in standard input or textarea
-    if (lastActiveInputRef.current) {
-      const inp = lastActiveInputRef.current;
-      if (typeof inp.selectionStart === 'number') {
-        const start = inp.selectionStart;
-        const end = inp.selectionEnd;
-        const val = inp.value || '';
-        const newVal = val.substring(0, start) + cleanText + val.substring(end);
-        inp.value = newVal;
-        inp.dispatchEvent(new Event('input', { bubbles: true }));
-        inp.setSelectionRange(start + cleanText.length, start + cleanText.length);
-        inp.focus();
-        return;
+    // 2. Target document paper mode (.document-body)
+    if (!isDirectEditMode) {
+      setIsDirectEditMode(true);
+    }
+
+    const allDocBodies = document.querySelectorAll('.document-body');
+    const targetDocBody = allDocBodies.length > 0 ? allDocBodies[allDocBodies.length - 1] : null;
+
+    if (!targetDocBody) {
+      setInterimVoiceText('');
+      return;
+    }
+
+    targetDocBody.contentEditable = 'true';
+
+    // Verify whether lastSavedRangeRef is still attached to the live DOM inside targetDocBody
+    let rangeToUse = null;
+    if (lastSavedRangeRef.current && lastSavedRangeRef.current.startContainer) {
+      const container = lastSavedRangeRef.current.startContainer;
+      const isConnected = container.nodeType === 9 ? true : container.isConnected;
+      if (isConnected && targetDocBody.contains(container)) {
+        // Prevent accidental offset 0 at the very start of document body (which would place text before header)
+        if (container === targetDocBody && lastSavedRangeRef.current.startOffset === 0) {
+          rangeToUse = document.createRange();
+          rangeToUse.selectNodeContents(targetDocBody);
+          rangeToUse.collapse(false);
+        } else {
+          rangeToUse = lastSavedRangeRef.current;
+        }
       }
     }
 
-    // 3. Fallback: focus first .document-body and insert
-    const docBody = document.querySelector('.document-body');
-    if (docBody) {
-      docBody.focus();
-      try {
-        document.execCommand('insertText', false, cleanText);
-      } catch (e) { }
+    // If no valid range inside targetDocBody, ALWAYS default to the VERY END of the document (never at the top before header!)
+    if (!rangeToUse) {
+      rangeToUse = document.createRange();
+      rangeToUse.selectNodeContents(targetDocBody);
+      rangeToUse.collapse(false);
     }
+
+    const sel = window.getSelection();
+    try {
+      sel.removeAllRanges();
+      sel.addRange(rangeToUse);
+    } catch (e) { }
+
+    let ok = false;
+    try {
+      ok = document.execCommand('insertText', false, cleanText);
+    } catch (e) { }
+
+    if (!ok) {
+      const node = document.createTextNode(cleanText);
+      rangeToUse.insertNode(node);
+      const newRange = document.createRange();
+      newRange.setStartAfter(node);
+      newRange.collapse(true);
+      if (sel) {
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+      }
+      lastSavedRangeRef.current = newRange.cloneRange();
+    } else {
+      if (sel && sel.rangeCount > 0) {
+        lastSavedRangeRef.current = sel.getRangeAt(0).cloneRange();
+      }
+    }
+
+    // Synchronize customDirectHtml immediately so subsequent re-renders or interim updates keep DOM intact
+    const updatedBodies = document.querySelectorAll('.document-body');
+    if (updatedBodies.length > 0) {
+      const fullHtml = updatedBodies.length === 1
+        ? updatedBodies[0].innerHTML
+        : Array.from(updatedBodies).map(b => b.innerHTML).join('\n\n---PAGE_BREAK---\n\n');
+      setCustomDirectHtml(fullHtml);
+    }
+
+    setInterimVoiceText('');
   };
 
   const stopVoiceTyping = () => {
@@ -621,9 +721,46 @@ export default function DocumentStudio({
       return;
     }
 
-    // Auto-enable direct edit mode if user wasn't in direct edit mode so they can see typing on paper
-    if (!isDirectEditMode && !lastActiveInputRef.current) {
-      setIsDirectEditMode(true);
+    // If already listening, stop first
+    if (speechRecognizerRef.current) {
+      speechRecognizerRef.current.stop();
+      speechRecognizerRef.current = null;
+    }
+
+    // Save active cursor if inside document-body
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      const container = range.commonAncestorContainer;
+      const el = container.nodeType === 1 ? container : container.parentElement;
+      const docBody = el ? (el.classList?.contains('document-body') ? el : el.closest?.('.document-body')) : null;
+      if (docBody) {
+        lastSavedRangeRef.current = range.cloneRange();
+        lastActiveInputRef.current = null;
+      }
+    }
+
+    // If no range saved and no input focused, default to the END of the document paper
+    const activeEl = document.activeElement;
+    const isInputFocused = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
+    if (!isInputFocused && (!lastSavedRangeRef.current || !lastSavedRangeRef.current.startContainer?.isConnected)) {
+      const allDocBodies = document.querySelectorAll('.document-body');
+      const targetBody = allDocBodies.length > 0 ? allDocBodies[allDocBodies.length - 1] : null;
+      if (targetBody) {
+        if (!isDirectEditMode) setIsDirectEditMode(true);
+        targetBody.contentEditable = 'true';
+        const freshRange = document.createRange();
+        freshRange.selectNodeContents(targetBody);
+        freshRange.collapse(false);
+        lastSavedRangeRef.current = freshRange;
+        lastActiveInputRef.current = null;
+        if (sel) {
+          try {
+            sel.removeAllRanges();
+            sel.addRange(freshRange);
+          } catch (e) { }
+        }
+      }
     }
 
     const recognizer = createSpeechRecognizer({
@@ -635,20 +772,15 @@ export default function DocumentStudio({
         setInterimVoiceText(interim);
       },
       onError: (err) => {
-        if (err.message) {
-          alert(err.message);
+        if (err.error === 'not-allowed' || err.error === 'service-not-allowed') {
+          alert(err.message || 'માઇક્રોફોનની પરવાનગી આપો.');
+          stopVoiceTyping();
         }
-        stopVoiceTyping();
       },
       onEnd: ({ isExplicitlyStopped }) => {
-        if (!isExplicitlyStopped && isListening) {
-          try {
-            speechRecognizerRef.current?.start();
-          } catch (e) {
-            stopVoiceTyping();
-          }
-        } else {
-          stopVoiceTyping();
+        if (isExplicitlyStopped) {
+          setIsListening(false);
+          setInterimVoiceText('');
         }
       }
     });
@@ -982,10 +1114,38 @@ export default function DocumentStudio({
     return customDirectHtml !== null ? customDirectHtml : rawRenderedContent;
   };
 
-  const handlePrint = () => {
+  const [showSubModalDirect, setShowSubModalDirect] = useState(false);
+
+  const handlePrint = (e) => {
+    if (!isPremium()) {
+      e?.preventDefault?.();
+      return;
+    }
     handleDirectEditBlur();
     window.print();
   };
+
+  // Block Ctrl+P for non-premium users
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+        if (!isPremium()) {
+          e.preventDefault();
+          e.stopPropagation();
+          // Find and click the locked print button to trigger subscription modal
+          const lockedBtn = document.querySelector('.btn-primary.subscription-locked');
+          if (lockedBtn) {
+            lockedBtn.click();
+          } else {
+            alert('🔒 પ્રિન્ટ અને PDF ડાઉનલોડ કરવા માટે પ્રીમિયમ સબ્સ્ક્રિપ્શન જરૂરી છે.');
+          }
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [isPremium]);
+
 
   const handleCopy = () => {
     handleDirectEditBlur();
@@ -1003,6 +1163,32 @@ export default function DocumentStudio({
     exportToWord(filename, currentTemplate.title, latestHtml);
   };
 
+  const handleDownloadPdf = async (e) => {
+    if (!isPremium()) {
+      e?.preventDefault?.();
+      return;
+    }
+    handleDirectEditBlur();
+    setIsGeneratingPdf(true);
+    try {
+      const filename = `${currentTemplate.id || 'document'}_${new Date().toISOString().slice(0, 10)}`;
+      const pagesContainer = document.querySelector('.document-pages-container');
+      if (pagesContainer) {
+        await exportToPdf(filename, pagesContainer, {
+          paperSize: pageSetup.paperSize,
+          fontFamily: activeFont?.family
+        });
+      } else {
+        alert('દસ્તાવેજ પેજ મળ્યું નથી.');
+      }
+    } catch (err) {
+      console.error('PDF ડાઉનલોડમાં ભૂલ:', err);
+      alert('PDF ડાઉનલોડ કરવામાં ભૂલ આવી: ' + (err.message || err));
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
   const handleSaveClientRecord = () => {
     handleDirectEditBlur();
     const latestHtml = getLatestDocumentHtml();
@@ -1016,7 +1202,7 @@ export default function DocumentStudio({
       pageSetup: { ...pageSetup }
     };
 
-    const ok = saveRecordToStorage(record);
+    const ok = saveRecordToStorage(record, currentUser?.uid);
     if (ok) {
       setSaveStatus('અસીલ ફાઇલ સફળતાપૂર્વક સાચવવામાં આવી!');
       if (onRecordSaved) onRecordSaved();
@@ -1266,7 +1452,10 @@ export default function DocumentStudio({
   };
 
   return (
-    <div className={`studio-container ${isFullscreenReview ? 'fullscreen-review-active' : ''}`}>
+    <div
+      className={`studio-container ${isFullscreenReview ? 'fullscreen-review-active' : ''}`}
+      data-mobile-tab={mobileStudioTab}
+    >
       <style>{`
         @media print {
           @page {
@@ -1275,6 +1464,30 @@ export default function DocumentStudio({
           }
         }
       `}</style>
+
+      {/* Mobile Segmented View Switcher (< 1024px) */}
+      <div className="studio-mobile-switch" role="tablist">
+        <button
+          type="button"
+          className={`studio-mobile-tab-btn ${mobileStudioTab === 'form' ? 'active' : ''}`}
+          onClick={() => setMobileStudioTab('form')}
+          role="tab"
+          aria-selected={mobileStudioTab === 'form'}
+        >
+          <Edit3 size={15} />
+          <span>૧. પેરામીટર્સ (Form)</span>
+        </button>
+        <button
+          type="button"
+          className={`studio-mobile-tab-btn ${mobileStudioTab === 'preview' ? 'active' : ''}`}
+          onClick={() => setMobileStudioTab('preview')}
+          role="tab"
+          aria-selected={mobileStudioTab === 'preview'}
+        >
+          <Eye size={15} />
+          <span>૨. દસ્તાવેજ જુઓ (Preview)</span>
+        </button>
+      </div>
 
       {/* ================= LEFT PANEL: DYNAMIC FORM ================= */}
       <aside className="studio-form-panel">
@@ -1336,6 +1549,23 @@ export default function DocumentStudio({
           </button>
 
           <button
+            type="button"
+            className={`tool-toggle-btn ${isListening ? 'listening-active' : ''}`}
+            onClick={toggleVoiceTyping}
+            title={isListening ? "વોઇસ ટાઇપિંગ બંધ કરો" : "ગુજરાતી બોલીને પેરામીટર ભરો (Speech to Text)"}
+            style={{
+              fontSize: '0.75rem',
+              color: isListening ? '#ffffff' : '#dc2626',
+              background: isListening ? '#dc2626' : undefined,
+              borderColor: isListening ? '#dc2626' : '#fca5a5',
+              fontWeight: 600
+            }}
+          >
+            {isListening ? <MicOff size={13} style={{ color: '#ffffff' }} /> : <Mic size={13} style={{ color: '#dc2626' }} />}
+            <span>{isListening ? 'સાંભળે છે...' : 'માઇકથી ભરો'}</span>
+          </button>
+
+          <button
             className="tool-toggle-btn"
             onClick={isPedhinamu ? handleResetPedhinamuDemo : handleClearForm}
             title={isPedhinamu ? "સેમ્પલ રીસેટ કરો" : "તમામ ફિલ્ડ ખાલી કરો"}
@@ -1345,6 +1575,48 @@ export default function DocumentStudio({
             <span>{isPedhinamu ? 'રીસેટ' : 'સાફ કરો'}</span>
           </button>
         </div>
+
+        {/* Active Speech Recognition Banner */}
+        {isListening && (
+          <div style={{
+            padding: '0.5rem 1.5rem',
+            background: '#fef2f2',
+            borderBottom: '1px solid #fecaca',
+            fontSize: '0.78rem',
+            color: '#991b1b',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '0.5rem'
+          }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              <span style={{
+                display: 'inline-block',
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                background: '#dc2626',
+                boxShadow: '0 0 0 3px rgba(220, 38, 38, 0.2)'
+              }} />
+              <strong>વોઇસ ટાઇપિંગ ચાલુ:</strong> {interimVoiceText ? `"${interimVoiceText}"` : 'ફિલ્ડમાં ક્લિક કરી ગુજરાતીમાં બોલો...'}
+            </span>
+            <button
+              type="button"
+              onClick={stopVoiceTyping}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: '#dc2626',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: '0.72rem',
+                textDecoration: 'underline'
+              }}
+            >
+              બંધ કરો
+            </button>
+          </div>
+        )}
 
         {/* Quick Currency Words Helper Tool */}
         {!isPedhinamu && (
@@ -1779,13 +2051,41 @@ export default function DocumentStudio({
 
                       return (
                         <div key={varKey} className="field-group">
-                          <label className="field-label">
-                            <span>{varKey.replace(/_/g, " ")}</span>
+                          <label className="field-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <span>{varKey.replace(/_/g, " ")}</span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  const parent = e.currentTarget.closest('.field-group');
+                                  const inp = parent?.querySelector('input, textarea');
+                                  if (inp) {
+                                    inp.focus();
+                                    lastActiveInputRef.current = inp;
+                                  }
+                                  if (!isListening) startVoiceTyping();
+                                }}
+                                style={{
+                                  border: 'none',
+                                  background: 'none',
+                                  cursor: 'pointer',
+                                  padding: '2px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  color: isListening ? '#dc2626' : '#94a3b8'
+                                }}
+                                title="આ ફિલ્ડ માટે બોલીને લખો (Mic)"
+                              >
+                                <Mic size={12} />
+                              </button>
+                            </span>
                             <span className="field-tag-key">&#123;&#123;{varKey}&#125;&#125;</span>
                           </label>
                           {isTextarea ? (
                             <textarea
                               className="input-control"
+                              data-var-key={varKey}
                               value={val}
                               placeholder={isEnglish
                                 ? `Enter ${varKey.replace(/_/g, " ")} here...`
@@ -1794,11 +2094,13 @@ export default function DocumentStudio({
                               rows={2}
                               onChange={e => handleInputChange(varKey, e.target.value)}
                               onKeyDown={e => handlePhoneticKeyDown(e, isPhoneticActive, newVal => handleInputChange(varKey, newVal))}
+                              onFocus={e => { lastActiveInputRef.current = e.target; }}
                             />
                           ) : (
                             <input
                               type="text"
                               className="input-control"
+                              data-var-key={varKey}
                               value={val}
                               placeholder={isEnglish
                                 ? `Enter ${varKey.replace(/_/g, " ")}...`
@@ -1806,6 +2108,7 @@ export default function DocumentStudio({
                               }
                               onChange={e => handleInputChange(varKey, e.target.value)}
                               onKeyDown={e => handlePhoneticKeyDown(e, isPhoneticActive, newVal => handleInputChange(varKey, newVal))}
+                              onFocus={e => { lastActiveInputRef.current = e.target; }}
                             />
                           )}
                         </div>
@@ -1827,14 +2130,26 @@ export default function DocumentStudio({
               </span>
             )}
           </div>
+          {/* Mobile View Preview Button */}
           <button
-            className="btn-gold"
-            onClick={handleSaveClientRecord}
-            title="આ અસીલનો દસ્તાવેજ રેકોર્ડમાં સાચવો"
+            type="button"
+            className="btn-primary studio-mobile-view-preview-btn"
+            onClick={() => setMobileStudioTab('preview')}
+            title="દસ્તાવેજ કાગળ પ્રિવ્યૂ જુઓ"
           >
-            <Save size={16} />
-            <span>અસીલ ફાઇલ સાચવો</span>
+            <Eye size={15} />
+            <span>પ્રિવ્યૂ જુઓ</span>
           </button>
+          <SubscriptionGuard action="અસીલ ફાઇલ સાચવવી">
+            <button
+              className="btn-gold"
+              onClick={handleSaveClientRecord}
+              title="આ અસીલનો દસ્તાવેજ રેકોર્ડમાં સાચવો"
+            >
+              <Save size={16} />
+              <span>અસીલ ફાઇલ સાચવો</span>
+            </button>
+          </SubscriptionGuard>
         </div>
       </aside>
 
@@ -1849,15 +2164,17 @@ export default function DocumentStudio({
               <span style={{ color: '#94a3b8', fontSize: '0.74rem' }}>— કીબોર્ડ પરથી [Esc] કી દબાવીને સામાન્ય વ્યૂમાં પાછા જઈ શકો છો</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={handlePrint}
-                style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }}
-              >
-                <Printer size={13} />
-                <span>પ્રિન્ટ / PDF</span>
-              </button>
+              <SubscriptionGuard action="પ્રિન્ટ / PDF">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={handlePrint}
+                  style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }}
+                >
+                  <Printer size={13} />
+                  <span>પ્રિન્ટ / PDF</span>
+                </button>
+              </SubscriptionGuard>
               <button
                 type="button"
                 onClick={() => setIsFullscreenReview(false)}
@@ -1926,13 +2243,251 @@ export default function DocumentStudio({
           </div>
         )}
 
-        {/* Preview Toolbar (Two-Tier Structured Layout to Prevent Overlap) */}
+        {/* Preview Toolbar (Executive Two-Tier Command Ribbon) */}
         <div className="preview-toolbar">
 
-          {/* Row 1: Typing Mode, Font Selector, Text Formatting Tools (Bold, Italic, Underline), and Action Buttons */}
+          {/* Row 1: Document Settings, Paper Customization & Output Actions */}
           <div className="toolbar-row primary-toolbar-row">
             <div className="toolbar-group">
-              {/* Phonetic Keyboard Toggle */}
+              {/* Mobile Back to Form Button (< 1024px) */}
+              <button
+                type="button"
+                className="tool-toggle-btn studio-mobile-back-form-btn"
+                onClick={() => setMobileStudioTab('form')}
+                title="ફોર્મ / પેરામીટર્સ પેનલ પર પાછા જાઓ"
+                style={{ background: '#eff6ff', borderColor: '#93c5fd', color: '#1d4ed8', fontWeight: 700 }}
+              >
+                <Edit3 size={13} />
+                <span>← પેરામીટર્સ</span>
+              </button>
+
+              {/* Page Setup Button */}
+              <button
+                className="tool-toggle-btn"
+                onClick={() => setIsPageSetupOpen(true)}
+                title="પેજ સાઇઝ (A4 / Legal), માર્જિન અને પ્રિન્ટ સ્પેસિંગ ગોઠવો"
+              >
+                <Sliders size={13} />
+                <span>પેજ સેટઅપ ({pageSetup.paperSize})</span>
+              </button>
+
+              {/* Footer Customization Menu Button */}
+              <button
+                type="button"
+                className={`tool-toggle-btn ${pageSetup.footerSetup?.enabled !== false ? 'active' : ''}`}
+                onClick={() => setIsFooterMenuOpen(true)}
+                title="દસ્તાવેજના ફૂટરનું કસ્ટમાઇઝેશન (પાના નંબર, અસીલ નામ, તારીખ, વકીલ સહી, લાઇન સ્ટાઇલ)"
+              >
+                <Layout size={13} />
+                <span>ફૂટર મેનુ {pageSetup.footerSetup?.enabled === false ? '(બંધ)' : ''}</span>
+              </button>
+
+              {/* Stamp Paper Mode Toggle */}
+              <button
+                className={`tool-toggle-btn ${stampPaperMode ? 'active' : ''}`}
+                onClick={() => setStampPaperMode(!stampPaperMode)}
+                title="સરકારી ₹ ૫૦ / ₹ ૧૦૦ / ₹ ૩૦૦ ના સ્ટેમ્પ પેપર પર પ્રિન્ટ માટે ઉપરથી માર્જિન છોડો"
+              >
+                <FileCheck size={13} />
+                <span>સ્ટેમ્પ પેપર: {stampPaperMode ? `${stampMarginMm}mm` : 'બંધ'}</span>
+              </button>
+
+              {stampPaperMode && (
+                <div className="stamp-offset-slider-box">
+                  <span className="stamp-offset-label">માર્જિન:</span>
+                  <input
+                    type="range"
+                    min="60"
+                    max="140"
+                    value={stampMarginMm}
+                    onChange={e => setStampMarginMm(Number(e.target.value))}
+                    className="stamp-range-input"
+                  />
+                  <span className="stamp-offset-val">{stampMarginMm}mm</span>
+                </div>
+              )}
+
+              {/* Digital QR Verification Toggle */}
+              <button
+                type="button"
+                className={`tool-toggle-btn ${pageSetup.showVerificationQR !== false ? 'active' : ''}`}
+                onClick={() => {
+                  const updated = {
+                    ...pageSetup,
+                    showVerificationQR: pageSetup.showVerificationQR === false ? true : false
+                  };
+                  handleSavePageSetup(updated);
+                }}
+                title="દસ્તાવેજના અંતે સત્તાવાર QR કોડ સત્યતા બેજ ચાલુ / બંધ કરો"
+              >
+                <QrCode size={13} />
+                <span>QR Code: {pageSetup.showVerificationQR !== false ? 'ચાલુ' : 'બંધ'}</span>
+              </button>
+
+              {/* Watermark 1-Click Quick Toggle */}
+              <button
+                type="button"
+                className={`tool-toggle-btn ${pageSetup.showWatermark ? 'active' : ''}`}
+                onClick={() => {
+                  const updated = {
+                    ...pageSetup,
+                    showWatermark: !pageSetup.showWatermark
+                  };
+                  handleSavePageSetup(updated);
+                }}
+                title="કાગળ પર ત્રાંસો 'કાચો મુસદ્દો / DRAFT' વોટરમાર્ક ૧-ક્લિકમાં ચાલુ / બંધ કરો"
+              >
+                <Layers size={13} />
+                <span>વોટરમાર્ક: {pageSetup.showWatermark ? 'ચાલુ' : 'બંધ'}</span>
+              </button>
+
+              {/* Pedhinamu Specific Toggles */}
+              {isPedhinamu && (
+                <>
+                  <button
+                    type="button"
+                    className={`tool-toggle-btn ${showTreeMap ? 'active' : ''}`}
+                    onClick={() => setShowTreeMap(!showTreeMap)}
+                    title="વિઝ્યુઅલ વારસાઈ આંબો (Tree Chart) ચાલુ / બંધ"
+                  >
+                    <GitBranch size={13} />
+                    <span>આંબો (Tree): {showTreeMap ? 'ચાલુ' : 'બંધ'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`tool-toggle-btn ${showTable ? 'active' : ''}`}
+                    onClick={() => setShowTable(!showTable)}
+                    title="વારસદાર વિગત કોષ્ટક (Table) ચાલુ / બંધ"
+                  >
+                    <FileText size={13} />
+                    <span>ટેબલ: {showTable ? 'ચાલુ' : 'બંધ'}</span>
+                  </button>
+                </>
+              )}
+
+              {customDirectHtml !== null && (
+                <button
+                  className="tool-toggle-btn btn-reset-custom"
+                  onClick={handleResetDirectEdit}
+                  title="ડાયરેક્ટ કરેલા સુધારા રદ કરી મૂળ ફોર્મ મુજબ કરવું"
+                  style={{ color: '#dc2626', borderColor: '#fca5a5', background: '#fef2f2' }}
+                >
+                  <RotateCcw size={13} />
+                  <span>Reset</span>
+                </button>
+              )}
+            </div>
+
+            {/* Action Export Buttons + Zoom Controls */}
+            <div className="toolbar-actions">
+              <button
+                className="btn-secondary"
+                onClick={handleCopy}
+                title="તમામ લખાણ કોપી કરો"
+              >
+                {copied ? <Check size={14} style={{ color: '#34d399' }} /> : <Copy size={14} />}
+                <span>{copied ? 'કોપી થયું!' : 'કોપી'}</span>
+              </button>
+
+              <SubscriptionGuard action="Word (.docx) ડાઉનલોડ">
+                <button
+                  className="btn-secondary"
+                  onClick={handleExportWord}
+                  title="Microsoft Word (.docx) ફોર્મેટમાં ડાઉનલોડ"
+                >
+                  <Download size={14} />
+                  <span>Word</span>
+                </button>
+              </SubscriptionGuard>
+
+              <SubscriptionGuard action="PDF ડાઉનલોડ">
+                <button
+                  className="btn-secondary btn-download-pdf"
+                  onClick={handleDownloadPdf}
+                  title="દસ્તાવેજ સીધો PDF ફોર્મેટમાં ડાઉનલોડ કરો (.pdf)"
+                  disabled={isGeneratingPdf}
+                >
+                  {isGeneratingPdf ? <RotateCcw size={14} className="spin" /> : <FileDown size={14} />}
+                  <span>{isGeneratingPdf ? 'ડાઉનલોડ...' : 'PDF'}</span>
+                </button>
+              </SubscriptionGuard>
+
+              <SubscriptionGuard action="પ્રિન્ટ / PDF">
+                <button
+                  className="btn-primary"
+                  onClick={handlePrint}
+                  title="A4 / Legal કાગળ પર પ્રિન્ટ કાઢો અથવા PDF તરીકે સેવ કરો"
+                >
+                  <Printer size={14} />
+                  <span>Print</span>
+                </button>
+              </SubscriptionGuard>
+
+              {/* Zoom Segmented Control */}
+              <div className="zoom-segmented-control">
+                <button
+                  type="button"
+                  className="zoom-btn"
+                  onClick={() => setZoomLevel(Math.max(60, zoomLevel - 10))}
+                  title="Zoom Out (-10%)"
+                >
+                  -
+                </button>
+                <span className="zoom-text">
+                  {zoomLevel}%
+                </span>
+                <button
+                  type="button"
+                  className="zoom-btn"
+                  onClick={() => setZoomLevel(Math.min(140, zoomLevel + 10))}
+                  title="Zoom In (+10%)"
+                >
+                  +
+                </button>
+              </div>
+
+              {/* Fullscreen Icon Button */}
+              <button
+                type="button"
+                className={`format-icon-btn ${isFullscreenReview ? 'active' : ''}`}
+                onClick={() => setIsFullscreenReview(!isFullscreenReview)}
+                title={isFullscreenReview ? "Exit Full Screen" : "Full Screen"}
+                aria-label={isFullscreenReview ? "Exit Full Screen" : "Full Screen"}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '6px',
+                  border: isFullscreenReview ? '1px solid #3b82f6' : '1px solid #cbd5e1',
+                  background: isFullscreenReview ? '#eff6ff' : '#ffffff',
+                  color: isFullscreenReview ? '#1d4ed8' : '#475569',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {isFullscreenReview ? <Minimize2 size={15} strokeWidth={2.2} /> : <Maximize2 size={15} strokeWidth={2.2} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Row 2: Gujarati Input, Typography, Formatting & In-Paper Editing */}
+          <div className="toolbar-row secondary-toolbar-row">
+            <div className="toolbar-group">
+              {/* On-Paper Live Editing Toggle (Moved to first position) */}
+              <button
+                type="button"
+                className={`tool-toggle-btn ${isDirectEditMode ? 'active' : ''}`}
+                onClick={() => setIsDirectEditMode(!isDirectEditMode)}
+                title="કાગળ પર સીધું ક્લિક કરીને લખાણ સુધારો (On-Paper Editing)"
+              >
+                <Edit3 size={13} />
+                <span>ડાયરેક્ટ એડિટ: {isDirectEditMode ? 'ચાલુ' : 'બંધ'}</span>
+              </button>
+
+              {/* Phonetic Keyboard Toggle (Gujarati Typing) */}
               <button
                 type="button"
                 className={`phonetic-toggle-btn ${isPhoneticActive ? 'active' : ''}`}
@@ -1940,30 +2495,22 @@ export default function DocumentStudio({
                 title="અંગ્રેજીમાં ટાઇપ કરતા આપોઆપ ગુજરાતી થશે (દા.ત. rajesh -> રાજેશ). શોર્ટકટ: Ctrl+G"
               >
                 <Keyboard size={14} />
-                <span>{isPhoneticActive ? 'ગુજરાતી ટાઇપિંગ: ચાલુ (ON)' : 'English Typing (OFF)'}</span>
+                <span>{isPhoneticActive ? 'ગુજરાતી ટાઇપિંગ: ચાલુ' : 'English Typing'}</span>
               </button>
 
-              {/* On-Screen Gujarati Character Palette / Keyboard Reference */}
-              <button
-                type="button"
-                className={`phonetic-toggle-btn ${isKeyPaletteOpen ? 'active' : ''}`}
-                onClick={() => setIsKeyPaletteOpen(!isKeyPaletteOpen)}
-                title="ઓન-સ્ક્રીન ગુજરાતી અક્ષર પેલેટ & કીબોર્ડ ગાઈડ (ક્ષ, જ્ઞ, ત્ર, ૃ, અંકો વગેરે)"
-              >
-                <Sparkles size={14} style={{ color: isKeyPaletteOpen ? '#b45309' : '#d97706' }} />
-                <span>અક્ષર પેલેટ / કીબોર્ડ</span>
-              </button>
-
-              {/* Gujarati Voice Typing (Speech to Text) Button */}
+              {/* Gujarati Voice Typing Button */}
               <button
                 type="button"
                 className={`phonetic-toggle-btn voice-dictation-btn ${isListening ? 'listening-active' : ''}`}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={toggleVoiceTyping}
-                title={isListening ? "વોઇસ ટાઇપિંગ બંધ કરો (Stop)" : "ગુજરાતી બોલીને લખો (Gujarati Speech to Text) - માઇક્રોફોન વડે બોલો"}
+                title={isListening ? "વોઇસ ટાઇપિંગ બંધ કરો (Stop)" : "ગુજરાતી બોલીને લખો (Speech to Text)"}
               >
                 {isListening ? <MicOff size={14} style={{ color: '#ffffff' }} /> : <Mic size={14} style={{ color: '#dc2626' }} />}
-                <span>{isListening ? 'સાંભળે છે... (Stop)' : 'બોલીને લખો (Mic)'}</span>
+                <span>{isListening ? 'સાંભળે છે...' : 'બોલીને લખો (Mic)'}</span>
               </button>
+
+              <div className="toolbar-v-divider" />
 
               {/* Legal Font Selector */}
               <div className="toolbar-font-box">
@@ -1982,7 +2529,7 @@ export default function DocumentStudio({
                 </select>
               </div>
 
-              {/* Unified Font Size Stepper (Controls Entire Document or Selected Word in ONE button) */}
+              {/* Unified Font Size Stepper */}
               <div
                 className="font-size-stepper-box"
                 title={selectedWordSize ? `સિલેક્ટ કરેલ શબ્દ સાઈઝ (${selectedWordSize}pt) - ક્લિક કરીને વધારો/ઘટાડો` : `દસ્તાવેજ ફોન્ટ સાઈઝ (${pageSetup.fontSizePt || 13}pt) - ક્લિક કરીને વધારો/ઘટાડો`}
@@ -2023,7 +2570,7 @@ export default function DocumentStudio({
                 </button>
               </div>
 
-              {/* Text Formatter Option: Bold, Italic, Underline (Clean - No extra buttons) */}
+              {/* Text Formatter Option: Bold, Italic, Underline */}
               <div className="formatting-btn-group" title="ટેક્સ્ટ ફોર્મેટિંગ (લખાણ સિલેક્ટ કરીને બોલ્ડ / ઇટાલિક / અંડરલાઇન કરો)">
                 <button
                   type="button"
@@ -2057,8 +2604,7 @@ export default function DocumentStudio({
                 </button>
               </div>
 
-
-              {/* Undo / Redo Tools (Icon Only) */}
+              {/* Undo / Redo Tools */}
               <div className="formatting-btn-group" title="ફેરફારો પૂર્વવત (Undo / Redo)">
                 <button
                   type="button"
@@ -2083,96 +2629,8 @@ export default function DocumentStudio({
               </div>
             </div>
 
-            {/* Action Export Buttons */}
-            <div className="toolbar-actions">
-              <button
-                className="btn-secondary"
-                onClick={handleCopy}
-                title="તમામ લખાણ કોપી કરો"
-              >
-                {copied ? <Check size={14} style={{ color: '#34d399' }} /> : <Copy size={14} />}
-                <span>{copied ? 'કોપી થયું!' : 'કોપી'}</span>
-              </button>
-
-              <button
-                className="btn-secondary"
-                onClick={handleExportWord}
-                title="Microsoft Word (.docx) ફોર્મેટમાં ડાઉનલોડ"
-              >
-                <Download size={14} />
-                <span>Word (.docx)</span>
-              </button>
-
-              <button
-                className="btn-primary"
-                onClick={handlePrint}
-                title="A4 / Legal કાગળ પર પ્રિન્ટ કાઢો અથવા PDF તરીકે સેવ કરો"
-              >
-                <Printer size={14} />
-                <span>પ્રિન્ટ / PDF</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Row 2: Page Setup, Stamp Paper Margins, Direct Edit, and Zoom Controls */}
-          <div className="toolbar-row secondary-toolbar-row">
-            <div className="toolbar-group flex-wrap-group">
-              {/* Page Setup Button */}
-              <button
-                className="tool-toggle-btn"
-                onClick={() => setIsPageSetupOpen(true)}
-                title="પેજ સાઇઝ (A4 / Legal), માર્જિન અને પ્રિન્ટ સ્પેસિંગ ગોઠવો"
-              >
-                <Sliders size={13} />
-                <span>પેજ સેટઅપ ({pageSetup.paperSize})</span>
-              </button>
-
-              {/* Footer Customization Menu Button */}
-              <button
-                type="button"
-                className={`tool-toggle-btn ${pageSetup.footerSetup?.enabled !== false ? 'active' : ''}`}
-                onClick={() => setIsFooterMenuOpen(true)}
-                title="દસ્તાવેજના ફૂટરનું કસ્ટમાઇઝેશન (પાના નંબર, અસીલ નામ, તારીખ, વકીલ સહી, લાઇન સ્ટાઇલ)"
-              >
-                <Layout size={13} />
-                <span>ફૂટર મેનુ {pageSetup.footerSetup?.enabled === false ? '(બંધ)' : ''}</span>
-              </button>
-
-              {/* Stamp Paper Mode Toggle */}
-              <button
-                className={`tool-toggle-btn ${stampPaperMode ? 'active' : ''}`}
-                onClick={() => setStampPaperMode(!stampPaperMode)}
-                title="સરકારી ₹ ૫૦ / ₹ ૧૦૦ / ₹ ૩૦૦ ના સ્ટેમ્પ પેપર પર પ્રિન્ટ માટે ઉપરથી માર્જિન છોડો"
-              >
-                <FileCheck size={13} />
-                <span>સ્ટેમ્પ પેપર માર્જિન: {stampPaperMode ? `${stampMarginMm}mm` : 'બંધ'}</span>
-              </button>
-
-              {stampPaperMode && (
-                <div className="stamp-offset-slider-box">
-                  <span className="stamp-offset-label">ઓફસેટ:</span>
-                  <input
-                    type="range"
-                    min="60"
-                    max="140"
-                    value={stampMarginMm}
-                    onChange={e => setStampMarginMm(Number(e.target.value))}
-                    className="stamp-range-input"
-                  />
-                  <span className="stamp-offset-val">{stampMarginMm}mm</span>
-                </div>
-              )}
-
-              {/* On-Paper Live Editing Toggle */}
-              <button
-                className={`tool-toggle-btn ${isDirectEditMode ? 'active' : ''}`}
-                onClick={() => setIsDirectEditMode(!isDirectEditMode)}
-                title="કાગળ પર સીધું ક્લિક કરીને લખાણ સુધારો (On-Paper Editing)"
-              >
-                <Edit3 size={13} />
-                <span>ડાયરેક્ટ એડિટ: {isDirectEditMode ? 'ચાલુ (ON)' : 'બંધ'}</span>
-              </button>
-
+            {/* In-Paper Actions Group */}
+            <div className="toolbar-group">
               {/* Page Break Inserter */}
               <button
                 className="tool-toggle-btn"
@@ -2181,127 +2639,18 @@ export default function DocumentStudio({
                 title="જ્યાં કર્સર હોય ત્યાંથી નવું પાનું (Page Break) બનાવો"
               >
                 <SplitSquareVertical size={13} />
-                <span>+ નવું પેજ (Break)</span>
+                <span>+ નવું પેજ</span>
               </button>
 
-              {/* Digital QR Verification Toggle */}
+              {/* On-Screen Gujarati Character Palette (Last position) */}
               <button
                 type="button"
-                className={`tool-toggle-btn ${pageSetup.showVerificationQR !== false ? 'active' : ''}`}
-                onClick={() => {
-                  const updated = {
-                    ...pageSetup,
-                    showVerificationQR: pageSetup.showVerificationQR === false ? true : false
-                  };
-                  handleSavePageSetup(updated);
-                }}
-                title="દસ્તાવેજના અંતે સત્તાવાર QR કોડ સત્યતા બેજ ચાલુ / બંધ કરો"
+                className={`phonetic-toggle-btn ${isKeyPaletteOpen ? 'active' : ''}`}
+                onClick={() => setIsKeyPaletteOpen(!isKeyPaletteOpen)}
+                title="ઓન-સ્ક્રીન ગુજરાતી અક્ષર પેલેટ & કીબોર્ડ ગાઈડ"
               >
-                <QrCode size={13} />
-                <span>QR વેરિફિકેશન: {pageSetup.showVerificationQR !== false ? 'ચાલુ' : 'બંધ'}</span>
-              </button>
-
-              {/* Watermark 1-Click Quick Toggle */}
-              <button
-                type="button"
-                className={`tool-toggle-btn ${pageSetup.showWatermark ? 'active' : ''}`}
-                onClick={() => {
-                  const updated = {
-                    ...pageSetup,
-                    showWatermark: !pageSetup.showWatermark
-                  };
-                  handleSavePageSetup(updated);
-                }}
-                title="કાગળ પર ત્રાંસો 'કાચો મુસદ્દો / DRAFT' વોટરમાર્ક ૧-ક્લિકમાં ચાલુ / બંધ કરો"
-              >
-                <Layers size={13} />
-                <span>વોટરમાર્ક: {pageSetup.showWatermark ? 'DRAFT (ચાલુ)' : 'બંધ'}</span>
-              </button>
-
-              {/* Pedhinamu Specific Toggles */}
-              {isPedhinamu && (
-                <>
-                  <button
-                    type="button"
-                    className={`tool-toggle-btn ${showTreeMap ? 'active' : ''}`}
-                    onClick={() => setShowTreeMap(!showTreeMap)}
-                    title="વિઝ્યુઅલ વારસાઈ આંબો (Tree Chart) ચાલુ / બંધ"
-                  >
-                    <GitBranch size={13} />
-                    <span>આંબો (Tree): {showTreeMap ? 'ચાલુ' : 'બંધ'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    className={`tool-toggle-btn ${showTable ? 'active' : ''}`}
-                    onClick={() => setShowTable(!showTable)}
-                    title="વારસદાર વિગત કોષ્ટક (Table) ચાલુ / બંધ"
-                  >
-                    <FileText size={13} />
-                    <span>ટેબલ: {showTable ? 'ચાલુ' : 'બંધ'}</span>
-                  </button>
-                </>
-              )}
-
-              {customDirectHtml !== null && (
-                <button
-                  className="tool-toggle-btn btn-reset-custom"
-                  onClick={handleResetDirectEdit}
-                  title="ડાયરેક્ટ કરેલા સુધારા રદ કરી મૂળ ફોર્મ મુજબ કરવું"
-                  style={{ color: '#dc2626', borderColor: '#fca5a5', background: '#fef2f2' }}
-                >
-                  <RotateCcw size={13} />
-                  <span>મૂળ લખાણ લાવો</span>
-                </button>
-              )}
-            </div>
-
-            {/* Zoom Segmented Control & Fullscreen Toggle */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-              <div className="zoom-segmented-control">
-                <button
-                  type="button"
-                  className="zoom-btn"
-                  onClick={() => setZoomLevel(Math.max(60, zoomLevel - 10))}
-                  title="Zoom Out (-10%)"
-                >
-                  -
-                </button>
-                <span className="zoom-text">
-                  {zoomLevel}%
-                </span>
-                <button
-                  type="button"
-                  className="zoom-btn"
-                  onClick={() => setZoomLevel(Math.min(140, zoomLevel + 10))}
-                  title="Zoom In (+10%)"
-                >
-                  +
-                </button>
-              </div>
-
-              {/* Fullscreen Icon-Only Button */}
-              <button
-                type="button"
-                className={`format-icon-btn ${isFullscreenReview ? 'active' : ''}`}
-                onClick={() => setIsFullscreenReview(!isFullscreenReview)}
-                title={isFullscreenReview ? "Exit Full Screen" : "Full Screen"}
-                aria-label={isFullscreenReview ? "Exit Full Screen" : "Full Screen"}
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: '6px',
-                  border: isFullscreenReview ? '1px solid #3b82f6' : '1px solid #cbd5e1',
-                  background: isFullscreenReview ? '#eff6ff' : '#ffffff',
-                  color: isFullscreenReview ? '#1d4ed8' : '#475569',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-              >
-                {isFullscreenReview ? <Minimize2 size={15} strokeWidth={2.2} /> : <Maximize2 size={15} strokeWidth={2.2} />}
+                <Sparkles size={14} style={{ color: isKeyPaletteOpen ? '#b45309' : '#d97706' }} />
+                <span>અક્ષર પેલેટ</span>
               </button>
             </div>
           </div>
@@ -2403,6 +2752,36 @@ export default function DocumentStudio({
                     contentEditable={isDirectEditMode}
                     suppressContentEditableWarning={true}
                     onBlur={handleDirectEditBlur}
+                    onClick={() => {
+                      const sel = window.getSelection();
+                      if (sel && sel.rangeCount > 0) {
+                        lastSavedRangeRef.current = sel.getRangeAt(0).cloneRange();
+                        lastActiveInputRef.current = null;
+                      }
+                    }}
+                    onKeyUp={(e) => {
+                      const sel = window.getSelection();
+                      if (sel && sel.rangeCount > 0) {
+                        lastSavedRangeRef.current = sel.getRangeAt(0).cloneRange();
+                        lastActiveInputRef.current = null;
+                      }
+                      if (e.key === 'Enter') {
+                        const docBodies = document.querySelectorAll('.document-body');
+                        if (docBodies.length > 0) {
+                          const fullHtml = docBodies.length === 1
+                            ? docBodies[0].innerHTML
+                            : Array.from(docBodies).map(b => b.innerHTML).join('\n\n---PAGE_BREAK---\n\n');
+                          setCustomDirectHtml(fullHtml);
+                        }
+                      }
+                    }}
+                    onInput={() => {
+                      const sel = window.getSelection();
+                      if (sel && sel.rangeCount > 0) {
+                        lastSavedRangeRef.current = sel.getRangeAt(0).cloneRange();
+                        lastActiveInputRef.current = null;
+                      }
+                    }}
                     onKeyDown={e => {
                       if (isDirectEditMode) {
                         if (e.ctrlKey && (e.key === 'b' || e.key === 'B')) {

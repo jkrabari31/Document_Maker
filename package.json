@@ -10,10 +10,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "firebase": "^13.0.0",
+    "html2pdf.js": "^0.14.0",
     "lucide-react": "^1.49.0",
     "qrcode": "^1.5.4",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.4"
   },
   "devDependencies": {
     "@types/react": "^19.2.18",

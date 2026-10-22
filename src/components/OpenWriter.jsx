@@ -29,7 +29,10 @@ import {
   Eye,
   Maximize2,
   Minimize2,
-  Volume2
+  Volume2,
+  FilePlus,
+  Trash2,
+  Plus
 } from 'lucide-react';
 import {
   exportToPdf,
@@ -41,6 +44,19 @@ import { handlePhoneticKeyDown } from '../utils/gujaratiTransliterate';
 import { isSpeechSupported, createSpeechRecognizer } from '../utils/speechRecognition';
 import SubscriptionGuard from './SubscriptionGuard';
 import { useAuth } from '../contexts/AuthContext';
+
+const DEFAULT_WRITER_HTML = `
+  <h2 style="text-align: center; margin-bottom: 1.2rem; font-weight: 800;">|| કાનૂની દસ્તાવેજ ||</h2>
+  <p style="text-align: justify; margin-bottom: 1rem;">
+    અમો નીચે સહી કરનાર પક્ષકારો આથી રાજીખુશીથી, હોશહવાશમાં અને કોઈપણ જાતના દાબ-દબાણ વગર આ દસ્તાવેજ લખી આપીએ છીએ કે:
+  </p>
+  <p style="text-align: justify; margin-bottom: 1rem;">
+    (૧) અત્રે પક્ષકાર નં. ૧ ની વિગત તથા શરતો અહીંથી સીધી ટાઇપ કરો...
+  </p>
+  <p style="text-align: justify; margin-bottom: 1rem;">
+    (૨) સદરહુ લખાણ અમોએ વાંચી, સમજી, વિચારીને બરાબર હોવાની ખાતરી કરીને સહીઓ કરેલ છે.
+  </p>
+`;
 
 export default function OpenWriter({ onBackToStudio, userSettings, onRecordSaved }) {
   const { isPremium, currentUser } = useAuth();
@@ -66,60 +82,110 @@ export default function OpenWriter({ onBackToStudio, userSettings, onRecordSaved
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [wordCount, setWordCount] = useState(0);
 
-  const editorRef = useRef(null);
+  // Multi-page state
+  const [pageList, setPageList] = useState([
+    { id: 'page-1', initialHtml: DEFAULT_WRITER_HTML }
+  ]);
+  const [activePageIndex, setActivePageIndex] = useState(0);
+
+  const editorRefs = useRef({});
   const speechRecognizerRef = useRef(null);
   const lastSelectionRangeRef = useRef(null);
 
   const activeFont = LEGAL_FONTS.find(f => f.id === selectedFontId) || LEGAL_FONTS[0];
 
-  // Initial starter content for legal writer
-  const initialHtml = `
-    <h2 style="text-align: center; margin-bottom: 1.2rem; font-weight: 800;">|| કાનૂની દસ્તાવેજ ||</h2>
-    <p style="text-align: justify; margin-bottom: 1rem;">
-      અમો નીચે સહી કરનાર પક્ષકારો આથી રાજીખુશીથી, હોશહવાશમાં અને કોઈપણ જાતના દાબ-દબાણ વગર આ દસ્તાવેજ લખી આપીએ છીએ કે:
-    </p>
-    <p style="text-align: justify; margin-bottom: 1rem;">
-      (૧) અત્રે પક્ષકાર નં. ૧ ની વિગત તથા શરતો અહીંથી સીધી ટાઇપ કરો...
-    </p>
-    <p style="text-align: justify; margin-bottom: 1rem;">
-      (૨) સદરહુ લખાણ અમોએ વાંચી, સમજી, વિચારીને બરાબર હોવાની ખાતરી કરીને સહીઓ કરેલ છે.
-    </p>
-  `;
-
-  useEffect(() => {
-    if (editorRef.current && !editorRef.current.innerHTML.trim()) {
-      editorRef.current.innerHTML = initialHtml;
-      updateWordCount();
+  // Helper to obtain the active contentEditable DOM element
+  const getActiveEditor = () => {
+    const activeEl = document.activeElement;
+    if (activeEl && activeEl.classList.contains('open-writer-editable')) {
+      return activeEl;
     }
-  }, []);
+    const activePage = pageList[activePageIndex] || pageList[0];
+    if (activePage && editorRefs.current[activePage.id]) {
+      return editorRefs.current[activePage.id];
+    }
+    return document.querySelector('.open-writer-editable');
+  };
 
-  // Track cursor position inside editor
-  const updateSelectionRange = () => {
-    const sel = window.getSelection();
-    if (sel && sel.rangeCount > 0 && editorRef.current && editorRef.current.contains(sel.anchorNode)) {
-      lastSelectionRangeRef.current = sel.getRangeAt(0).cloneRange();
+  // Add new physical sheet (Page Break)
+  const handleAddNewPage = () => {
+    const newPageId = 'page-' + Date.now();
+    setPageList(prev => [...prev, { id: newPageId, initialHtml: '<p><br></p>' }]);
+    const nextIdx = pageList.length;
+    setActivePageIndex(nextIdx);
+
+    setTimeout(() => {
+      const newEditor = editorRefs.current[newPageId];
+      if (newEditor) {
+        newEditor.focus();
+        const sel = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(newEditor);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        updateSelectionRange();
+        newEditor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      updateWordCount();
+    }, 60);
+  };
+
+  // Delete page
+  const handleDeletePage = (pageIndex, e) => {
+    e?.stopPropagation?.();
+    if (pageList.length <= 1) return;
+    if (window.confirm(`શું તમે ખરેખર પેજ નં. ${pageIndex + 1} કાઢી નાખવા માંગો છો?`)) {
+      setPageList(prev => prev.filter((_, idx) => idx !== pageIndex));
+      const nextActive = Math.max(0, pageIndex - 1);
+      setActivePageIndex(nextActive);
+      setTimeout(updateWordCount, 60);
     }
   };
 
-  // Update word and character counter
+  // Track cursor position inside active editor
+  const updateSelectionRange = () => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const activeEd = getActiveEditor();
+      if (activeEd && activeEd.contains(sel.anchorNode)) {
+        lastSelectionRangeRef.current = sel.getRangeAt(0).cloneRange();
+      }
+    }
+  };
+
+  // Update word and character counter across all active pages
   const updateWordCount = () => {
-    if (!editorRef.current) return;
-    const text = editorRef.current.innerText || '';
-    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    const allEditors = document.querySelectorAll('.open-writer-editable');
+    let words = 0;
+    allEditors.forEach(ed => {
+      const text = ed.innerText || '';
+      if (text.trim()) {
+        words += text.trim().split(/\s+/).length;
+      }
+    });
     setWordCount(words);
   };
 
-  // Keyboard shortcut Ctrl+G for phonetic typing
+  useEffect(() => {
+    updateWordCount();
+  }, []);
+
+  // Keyboard shortcut Ctrl+G for phonetic typing and Ctrl+Enter for New Page
   useEffect(() => {
     const handleGlobalKeyDown = (e) => {
       if (e.ctrlKey && (e.key === 'g' || e.key === 'G')) {
         e.preventDefault();
         setIsPhoneticActive(prev => !prev);
       }
+      if (e.ctrlKey && e.key === 'Enter') {
+        e.preventDefault();
+        handleAddNewPage();
+      }
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, []);
+  }, [pageList.length]);
 
   // Cleanup speech on unmount
   useEffect(() => {
@@ -133,8 +199,9 @@ export default function OpenWriter({ onBackToStudio, userSettings, onRecordSaved
 
   // Format document commands (Bold, Italic, Align, etc.)
   const executeCommand = (command, value = null) => {
-    if (editorRef.current) {
-      editorRef.current.focus();
+    const activeEd = getActiveEditor();
+    if (activeEd) {
+      activeEd.focus();
       document.execCommand(command, false, value);
       updateSelectionRange();
       updateWordCount();
@@ -143,8 +210,9 @@ export default function OpenWriter({ onBackToStudio, userSettings, onRecordSaved
 
   // Instant high-performance voice text insertion
   const insertVoiceText = (text) => {
-    if (!text || !editorRef.current) return;
-    editorRef.current.focus();
+    const activeEd = getActiveEditor();
+    if (!text || !activeEd) return;
+    activeEd.focus();
 
     const sel = window.getSelection();
     if (lastSelectionRangeRef.current) {
@@ -165,7 +233,7 @@ export default function OpenWriter({ onBackToStudio, userSettings, onRecordSaved
     if (!success) {
       const range = sel.rangeCount > 0 ? sel.getRangeAt(0) : document.createRange();
       const node = document.createTextNode(cleanText);
-      if (editorRef.current.contains(range.startContainer)) {
+      if (activeEd.contains(range.startContainer)) {
         range.insertNode(node);
         range.setStartAfter(node);
         range.collapse(true);
@@ -173,7 +241,7 @@ export default function OpenWriter({ onBackToStudio, userSettings, onRecordSaved
         sel.addRange(range);
         lastSelectionRangeRef.current = range.cloneRange();
       } else {
-        editorRef.current.appendChild(node);
+        activeEd.appendChild(node);
       }
     } else if (sel.rangeCount > 0) {
       lastSelectionRangeRef.current = sel.getRangeAt(0).cloneRange();
@@ -200,11 +268,12 @@ export default function OpenWriter({ onBackToStudio, userSettings, onRecordSaved
 
       // Capture current cursor or place at end if not focused
       updateSelectionRange();
-      if (!lastSelectionRangeRef.current && editorRef.current) {
-        editorRef.current.focus();
+      const activeEd = getActiveEditor();
+      if (!lastSelectionRangeRef.current && activeEd) {
+        activeEd.focus();
         const sel = window.getSelection();
         const range = document.createRange();
-        range.selectNodeContents(editorRef.current);
+        range.selectNodeContents(activeEd);
         range.collapse(false);
         sel.removeAllRanges();
         sel.addRange(range);
@@ -242,8 +311,9 @@ export default function OpenWriter({ onBackToStudio, userSettings, onRecordSaved
 
   // Quick Legal Clauses to Insert
   const insertLegalClause = (type) => {
-    if (!editorRef.current) return;
-    editorRef.current.focus();
+    const activeEd = getActiveEditor();
+    if (!activeEd) return;
+    activeEd.focus();
     updateSelectionRange();
 
     let clauseHtml = '';
@@ -389,10 +459,10 @@ export default function OpenWriter({ onBackToStudio, userSettings, onRecordSaved
     }
     setIsGeneratingPdf(true);
     try {
-      const sheet = document.querySelector('.open-writer-sheet');
-      if (sheet) {
+      const pagesContainer = document.querySelector('.open-writer-pages-container') || document.querySelector('.open-writer-sheet');
+      if (pagesContainer) {
         const cleanName = docTitle.replace(/[^a-zA-Z0-9\u0A80-\u0AFF]/g, '_');
-        await exportToPdf(cleanName, sheet, {
+        await exportToPdf(cleanName, pagesContainer, {
           paperSize: paperSize,
           fontFamily: activeFont?.family
         });
@@ -406,30 +476,38 @@ export default function OpenWriter({ onBackToStudio, userSettings, onRecordSaved
   };
 
   const handleExportWord = () => {
-    const sheet = editorRef.current;
-    if (sheet) {
-      const cleanName = docTitle.replace(/[^a-zA-Z0-9\u0A80-\u0AFF]/g, '_');
-      exportToWord(cleanName, docTitle, sheet.innerHTML);
-    }
+    const allEditors = document.querySelectorAll('.open-writer-editable');
+    const fullHtml = Array.from(allEditors)
+      .map(ed => ed.innerHTML)
+      .join('\n\n---PAGE_BREAK---\n\n');
+    const cleanName = docTitle.replace(/[^a-zA-Z0-9\u0A80-\u0AFF]/g, '_');
+    exportToWord(cleanName, docTitle, fullHtml, activeFont?.family);
   };
 
   const handleCopy = () => {
-    if (editorRef.current) {
-      navigator.clipboard.writeText(editorRef.current.innerText || '');
+    const allEditors = document.querySelectorAll('.open-writer-editable');
+    const fullText = Array.from(allEditors)
+      .map(ed => (ed.innerText || '').trim())
+      .filter(Boolean)
+      .join('\n\n--- પેજ બ્રેક ---\n\n');
+    if (fullText) {
+      navigator.clipboard.writeText(fullText);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
   };
 
   const handleSaveRecord = () => {
-    if (!editorRef.current) return;
-    const content = editorRef.current.innerHTML;
+    const allEditors = document.querySelectorAll('.open-writer-editable');
+    const fullHtml = Array.from(allEditors)
+      .map(ed => ed.innerHTML)
+      .join('\n\n---PAGE_BREAK---\n\n');
     const record = {
       templateId: 'open-writer-doc-' + Date.now(),
       templateTitle: docTitle,
       clientName: docTitle,
-      renderedText: content,
-      pageSetup: { paperSize, fontSizePt, stampMarginMm }
+      renderedText: fullHtml,
+      pageSetup: { paperSize, fontSizePt, stampMarginMm, pagesCount: pageList.length }
     };
 
     const ok = saveRecordToStorage(record, currentUser?.uid);
@@ -442,13 +520,13 @@ export default function OpenWriter({ onBackToStudio, userSettings, onRecordSaved
 
   const handleResetDocument = () => {
     if (window.confirm("શું તમે આ પેજ સાફ કરીને નવો ખાલી દસ્તાવેજ શરૂ કરવા માંગો છો?")) {
-      if (editorRef.current) {
-        editorRef.current.innerHTML = `
-          <h2 style="text-align: center; margin-bottom: 1.2rem; font-weight: 800;">|| ${docTitle} ||</h2>
-          <p><br></p>
-        `;
-        updateWordCount();
-      }
+      const resetHtml = `
+        <h2 style="text-align: center; margin-bottom: 1.2rem; font-weight: 800;">|| ${docTitle} ||</h2>
+        <p><br></p>
+      `;
+      setPageList([{ id: 'page-' + Date.now(), initialHtml: resetHtml }]);
+      setActivePageIndex(0);
+      setTimeout(updateWordCount, 60);
     }
   };
 
@@ -473,6 +551,7 @@ export default function OpenWriter({ onBackToStudio, userSettings, onRecordSaved
               type="text"
               value={docTitle}
               onChange={e => setDocTitle(e.target.value)}
+              onKeyDown={e => handlePhoneticKeyDown(e, isPhoneticActive, val => setDocTitle(val))}
               className="writer-title-input"
               placeholder="દસ્તાવેજનું શીર્ષક લખો..."
               title="ક્લિક કરીને દસ્તાવેજનું શીર્ષક બદલો"
@@ -601,13 +680,22 @@ export default function OpenWriter({ onBackToStudio, userSettings, onRecordSaved
             className="writer-select"
             value={selectedFontId}
             onChange={e => setSelectedFontId(e.target.value)}
-            title="કાનૂની ફોન્ટ પસંદ કરો"
+            title="ગુજરાતી યુનિકોડ ફોન્ટ પસંદ કરો (૧૧ ફોન્ટ ઉપલબ્ધ)"
           >
-            {LEGAL_FONTS.map(f => (
-              <option key={f.id} value={f.id}>
-                {f.label || f.name}
-              </option>
-            ))}
+            <optgroup label="📝 ટેક્સ્ટ ફોન્ટ (લખાણ માટે)">
+              {LEGAL_FONTS.filter(f => f.category === 'text').map(f => (
+                <option key={f.id} value={f.id}>
+                  {f.label || f.name}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="🎨 ડિસ્પ્લે ફોન્ટ (ટાઈટલ માટે)">
+              {LEGAL_FONTS.filter(f => f.category === 'display').map(f => (
+                <option key={f.id} value={f.id}>
+                  {f.label || f.name}
+                </option>
+              ))}
+            </optgroup>
           </select>
         </div>
 
@@ -745,6 +833,23 @@ export default function OpenWriter({ onBackToStudio, userSettings, onRecordSaved
           </select>
         </div>
 
+        {/* Page Break / Add Page Button */}
+        <div className="writer-tool-group">
+          <button
+            type="button"
+            className="writer-page-btn"
+            onClick={handleAddNewPage}
+            title="નવું પેજ ઉમેરો (Shortcut: Ctrl + Enter)"
+          >
+            <FilePlus size={14} />
+            <span>+ નવું પેજ</span>
+            <span className="writer-kbd-chip">Ctrl+↵</span>
+          </button>
+          <span className="writer-page-badge" title="કુલ પેજ">
+            પેજ {activePageIndex + 1} / {pageList.length}
+          </span>
+        </div>
+
         {/* Quick Clause Inserter Dropdown */}
         <div className="writer-tool-group">
           <select
@@ -815,56 +920,123 @@ export default function OpenWriter({ onBackToStudio, userSettings, onRecordSaved
         </div>
       )}
 
-      {/* Main Canvas Viewport */}
+      {/* Main Canvas Viewport with Multi-Page Support */}
       <main className="open-writer-viewport">
-        <div
-          className={`open-writer-sheet legal-sheet ${stampPaperMode ? 'stamp-paper-mode' : ''}`}
-          style={{
-            width: paperSize === 'legal' ? '215.9mm' : '210mm',
-            minHeight: paperSize === 'legal' ? '355.6mm' : '297mm',
-            paddingTop: stampPaperMode ? `${stampMarginMm}mm` : '25mm',
-            paddingBottom: '25mm',
-            paddingLeft: '28mm',
-            paddingRight: '22mm',
-            fontSize: `${fontSizePt}pt`,
-            fontFamily: activeFont?.family || "'Noto Serif Gujarati', serif"
-          }}
-        >
-          {/* Stamp Paper Placeholder Zone */}
-          {stampPaperMode && (
-            <div
-              className="stamp-paper-placeholder-zone no-print"
-              style={{ height: `${stampMarginMm}mm` }}
-            >
-              <div className="stamp-zone-content">
-                <div style={{ fontSize: '0.88rem', color: '#b45309', fontWeight: 800 }}>
-                  🏛️ ગુજરાત સરકારી ઇ-સ્ટેમ્પ પેપર ઝોન ({stampMarginMm}mm)
-                </div>
-                <div style={{ fontSize: '0.72rem', color: '#78350f', marginTop: '2px' }}>
-                  આ ભાગમાં પ્રિન્ટ થશે નહીં. ₹ ૫૦ / ₹ ૧૦૦ / ₹ ૩૦૦ નું ઇ-સ્ટેમ્પ સર્ટિફિકેટ પ્રિન્ટરમાં મૂકો.
-                </div>
-              </div>
-            </div>
-          )}
+        <div className="open-writer-pages-container">
+          {pageList.map((page, index) => {
+            const isFirstPage = index === 0;
+            const effectiveTopPaddingMm = (isFirstPage && stampPaperMode) ? stampMarginMm : 25;
 
-          {/* Direct Free-Hand ContentEditable Writing Surface */}
-          <div
-            ref={editorRef}
-            contentEditable
-            suppressContentEditableWarning
-            className="open-writer-editable document-body"
-            onKeyDown={(e) => {
-              if (isPhoneticActive) {
-                handlePhoneticKeyDown(e);
-              }
-            }}
-            onMouseUp={updateSelectionRange}
-            onKeyUp={updateSelectionRange}
-            onClick={updateSelectionRange}
-            onFocus={updateSelectionRange}
-            onInput={updateWordCount}
-            spellCheck={false}
-          />
+            return (
+              <React.Fragment key={page.id}>
+                <div
+                  className={`open-writer-sheet legal-sheet ${isFirstPage && stampPaperMode ? 'stamp-paper-mode' : ''} ${activePageIndex === index ? 'page-active' : ''}`}
+                  onClick={() => setActivePageIndex(index)}
+                  style={{
+                    width: paperSize === 'legal' ? '215.9mm' : '210mm',
+                    minHeight: paperSize === 'legal' ? '355.6mm' : '297mm',
+                    paddingTop: `${effectiveTopPaddingMm}mm`,
+                    paddingBottom: '25mm',
+                    paddingLeft: '28mm',
+                    paddingRight: '22mm',
+                    fontSize: `${fontSizePt}pt`,
+                    fontFamily: activeFont?.family || "'Noto Serif Gujarati', serif"
+                  }}
+                >
+                  {/* First Page Visual Stamp Placeholder */}
+                  {isFirstPage && stampPaperMode && (
+                    <div
+                      className="stamp-paper-placeholder-zone no-print"
+                      style={{ height: `${stampMarginMm}mm` }}
+                    >
+                      <div className="stamp-zone-content">
+                        <div style={{ fontSize: '0.88rem', color: '#b45309', fontWeight: 800 }}>
+                          🏛️ ગુજરાત સરકારી ઇ-સ્ટેમ્પ પેપર ઝોન ({stampMarginMm}mm)
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: '#78350f', marginTop: '2px' }}>
+                          આ ભાગમાં પ્રિન્ટ થશે નહીં. ₹ ૫૦ / ₹ ૧૦૦ / ₹ ૩૦૦ નું ઇ-સ્ટેમ્પ સર્ટિફિકેટ પ્રિન્ટરમાં મૂકો.
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Multi-page Header for Page 2+ */}
+                  {!isFirstPage && (
+                    <div className="open-writer-page-header no-print">
+                      <div className="page-header-badge">
+                        <span>📄 પેજ નં. {index + 1}</span>
+                      </div>
+                      {pageList.length > 1 && (
+                        <button
+                          type="button"
+                          className="btn-delete-page"
+                          onClick={(e) => handleDeletePage(index, e)}
+                          title="આ પેજ કાઢી નાખો"
+                        >
+                          <Trash2 size={13} />
+                          <span>પેજ કાઢી નાખો</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Direct Free-Hand ContentEditable Writing Surface */}
+                  <div
+                    ref={el => {
+                      if (el) editorRefs.current[page.id] = el;
+                      else delete editorRefs.current[page.id];
+                    }}
+                    contentEditable
+                    suppressContentEditableWarning
+                    className="open-writer-editable document-body"
+                    data-page-index={index}
+                    onFocus={() => {
+                      setActivePageIndex(index);
+                      updateSelectionRange();
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.ctrlKey && e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddNewPage();
+                        return;
+                      }
+                      if (e.ctrlKey && (e.key === 'g' || e.key === 'G')) {
+                        e.preventDefault();
+                        setIsPhoneticActive(prev => !prev);
+                        return;
+                      }
+                      if (isPhoneticActive) {
+                        handlePhoneticKeyDown(e, isPhoneticActive, () => {
+                          updateWordCount();
+                          updateSelectionRange();
+                        });
+                      }
+                    }}
+                    onMouseUp={updateSelectionRange}
+                    onKeyUp={updateSelectionRange}
+                    onClick={updateSelectionRange}
+                    onInput={updateWordCount}
+                    spellCheck={false}
+                    dangerouslySetInnerHTML={{ __html: page.initialHtml || '<p><br></p>' }}
+                  />
+                </div>
+
+                {/* Interactive Page Divider & Quick Add Page Button between/after pages */}
+                <div className="open-writer-page-divider no-print">
+                  <button
+                    type="button"
+                    className="btn-insert-page-break"
+                    onClick={handleAddNewPage}
+                    title="આ પેજ પછી નવું પેજ ઉમેરો (Shortcut: Ctrl + Enter)"
+                  >
+                    <Plus size={13} />
+                    <span>+ નવું પેજ ઉમેરો (Page Break)</span>
+                    <span className="writer-kbd-chip">Ctrl+↵</span>
+                  </button>
+                </div>
+              </React.Fragment>
+            );
+          })}
         </div>
       </main>
 
@@ -872,6 +1044,8 @@ export default function OpenWriter({ onBackToStudio, userSettings, onRecordSaved
       <footer className="writer-bottom-bar no-print">
         <div className="writer-status-info">
           <span>કુલ શબ્દો: <strong>{wordCount}</strong></span>
+          <span>•</span>
+          <span>પેજ: <strong>{pageList.length}</strong></span>
           <span>•</span>
           <span>કાગળ: <strong>{paperSize === 'legal' ? 'Legal (લીગલ)' : 'A4'}</strong></span>
           <span>•</span>
@@ -884,7 +1058,7 @@ export default function OpenWriter({ onBackToStudio, userSettings, onRecordSaved
           )}
         </div>
         <div className="writer-status-tip">
-          💡 ટીપ: કીબોર્ડ પરથી લખવા માટે <code>ram</code> ➔ <code>રામ</code> (Ctrl+G) અથવા ઉપર માઇક બટન દબાવીને બોલો
+          💡 ટીપ: નવું પેજ ઉમેરવા માટે <code>Ctrl + Enter</code> દબાવો | ગુજરાતી ટાઇપિંગ માટે <code>Ctrl + G</code>
         </div>
       </footer>
     </div>

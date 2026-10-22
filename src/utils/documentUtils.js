@@ -91,9 +91,11 @@ export function cleanDocumentForExport(renderedText) {
 /**
  * Export rendered document to Microsoft Word (.doc) format with Gujarati UTF-8 support
  */
-export function exportToWord(filename, documentTitle, htmlContent) {
+export function exportToWord(filename, documentTitle, htmlContent, fontFamily) {
   const wordContent = (htmlContent || '')
     .replace(/---PAGE_BREAK---|::PAGE_BREAK::/g, '<br clear="all" style="page-break-before:always; mso-break-type:section-break;" />');
+
+  const selectedFont = fontFamily || "'Noto Serif Gujarati', 'Times New Roman', serif";
 
   const header = `<!DOCTYPE html>
 <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
@@ -102,7 +104,7 @@ export function exportToWord(filename, documentTitle, htmlContent) {
 <title>${documentTitle || "દસ્તાવેજ"}</title>
 <style>
   body {
-    font-family: 'Noto Sans Gujarati', 'Shruti', 'Gujarati', 'Times New Roman', serif;
+    font-family: ${selectedFont};
     font-size: 13pt;
     line-height: 1.6;
     color: #111;
@@ -571,10 +573,12 @@ export function splitContentIntoPages(renderedHtml, pageSetup) {
 }
 
 export const LEGAL_FONTS = [
+  // ── Text & Body Fonts (ડોક્યુમેન્ટ / લીગલ લખાણ માટે ઉત્તમ) ──
   { 
     id: "serif", 
     name: "Noto Serif Gujarati", 
     label: "નોટો સેરીફ (અસલ શાહી કોર્ટ લુક)", 
+    category: "text",
     family: "'Noto Serif Gujarati', 'Times New Roman', serif",
     fontFamily: "'Noto Serif Gujarati', 'Times New Roman', serif" 
   },
@@ -582,6 +586,7 @@ export const LEGAL_FONTS = [
     id: "sans", 
     name: "Noto Sans Gujarati", 
     label: "નોટો સાન્સ (આધુનિક & ક્રિસ્પ)", 
+    category: "text",
     family: "'Noto Sans Gujarati', 'Shruti', sans-serif",
     fontFamily: "'Noto Sans Gujarati', 'Shruti', sans-serif" 
   },
@@ -589,6 +594,7 @@ export const LEGAL_FONTS = [
     id: "rasa", 
     name: "Rasa Gujarati", 
     label: "રાસા (એલિગન્ટ ડીડ સેરીફ)", 
+    category: "text",
     family: "'Rasa', 'Noto Serif Gujarati', serif",
     fontFamily: "'Rasa', 'Noto Serif Gujarati', serif" 
   },
@@ -596,8 +602,66 @@ export const LEGAL_FONTS = [
     id: "mukta", 
     name: "Mukta Vaani", 
     label: "મુક્તા વાણી (સ્પષ્ટ બોલ્ડ)", 
+    category: "text",
     family: "'Mukta Vaani', 'Noto Sans Gujarati', sans-serif",
     fontFamily: "'Mukta Vaani', 'Noto Sans Gujarati', sans-serif" 
+  },
+  { 
+    id: "anek", 
+    name: "Anek Gujarati", 
+    label: "અનેક ગુજરાતી (વેરિએબલ & ફ્લેક્સિબલ)", 
+    category: "text",
+    family: "'Anek Gujarati', 'Noto Sans Gujarati', sans-serif",
+    fontFamily: "'Anek Gujarati', 'Noto Sans Gujarati', sans-serif" 
+  },
+  { 
+    id: "hind", 
+    name: "Hind Vadodara", 
+    label: "હિન્દ વડોદરા (મોબાઇલ ફ્રેન્ડલી & ક્લિન)", 
+    category: "text",
+    family: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif",
+    fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif" 
+  },
+  // ── Display & Decorative Fonts (ટાઈટલ / હેડલાઈન / બ્રાન્ડિંગ માટે) ──
+  { 
+    id: "shrikhand", 
+    name: "Shrikhand", 
+    label: "શ્રીખંડ ★ (બોલ્ડ ડિસ્પ્લે ટાઈટલ)", 
+    category: "display",
+    family: "'Shrikhand', 'Noto Serif Gujarati', cursive",
+    fontFamily: "'Shrikhand', 'Noto Serif Gujarati', cursive" 
+  },
+  { 
+    id: "kumar", 
+    name: "Kumar One", 
+    label: "કુમાર વન ★ (જ્વેલ ડેકોરેટિવ)", 
+    category: "display",
+    family: "'Kumar One', 'Noto Sans Gujarati', sans-serif",
+    fontFamily: "'Kumar One', 'Noto Sans Gujarati', sans-serif" 
+  },
+  { 
+    id: "kumar-outline", 
+    name: "Kumar One Outline", 
+    label: "કુમાર આઉટલાઈન ★ (હોલો ડેકોરેટિવ)", 
+    category: "display",
+    family: "'Kumar One Outline', 'Kumar One', sans-serif",
+    fontFamily: "'Kumar One Outline', 'Kumar One', sans-serif" 
+  },
+  { 
+    id: "mogra", 
+    name: "Mogra", 
+    label: "મોગરા ★ (માર્કર સ્ટાઈલ ડિસ્પ્લે)", 
+    category: "display",
+    family: "'Mogra', 'Noto Sans Gujarati', cursive",
+    fontFamily: "'Mogra', 'Noto Sans Gujarati', cursive" 
+  },
+  { 
+    id: "farsan", 
+    name: "Farsan", 
+    label: "ફરસાણ ★ (દેશી ફ્લેવર ડિસ્પ્લે)", 
+    category: "display",
+    family: "'Farsan', 'Noto Sans Gujarati', cursive",
+    fontFamily: "'Farsan', 'Noto Sans Gujarati', cursive" 
   }
 ];
 

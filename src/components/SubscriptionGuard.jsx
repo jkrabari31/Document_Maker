@@ -50,20 +50,20 @@ export default function SubscriptionGuard({ children, action = 'આ ફીચર
         <div className="sub-pricing-row">
           <div className="sub-plan">
             <div className="sub-plan-name">૧ મહિનો</div>
-            <div className="sub-plan-price">₹499<span>/મો</span></div>
+            <div className="sub-plan-price">₹199<span>/મો</span></div>
             <div className="sub-plan-features-tag">સ્ટાર્ટર પ્લાન</div>
           </div>
           <div className="sub-plan sub-plan-popular">
             <div className="sub-plan-badge">લોકપ્રિય</div>
             <div className="sub-plan-name">૬ મહિના</div>
-            <div className="sub-plan-price">₹2,499<span>/૬ મો</span></div>
-            <div className="sub-plan-savings">₹495 બચાવો</div>
+            <div className="sub-plan-price">₹999<span>/૬ મો</span></div>
+            <div className="sub-plan-savings">₹201 બચાવો</div>
           </div>
           <div className="sub-plan sub-plan-best">
             <div className="sub-plan-badge sub-plan-badge-gold">શ્રેષ્ઠ બચત</div>
             <div className="sub-plan-name">૧ વર્ષ</div>
-            <div className="sub-plan-price">₹4,999<span>/વર્ષ</span></div>
-            <div className="sub-plan-savings">₹989 બચાવો</div>
+            <div className="sub-plan-price">₹1599<span>/વર્ષ</span></div>
+            <div className="sub-plan-savings">₹800 બચાવો</div>
           </div>
         </div>
 
@@ -114,7 +114,7 @@ export default function SubscriptionGuard({ children, action = 'આ ફીચર
               <div className="sub-step">
                 <div className="sub-step-num">1</div>
                 <div>
-                  QR કોડ સ્કેન કરી પ્લાન મુજબ રકમ ચૂકવો: <strong>₹499 (1 મહિનો)</strong>, <strong>₹2,499 (6 મહિના)</strong> અથવા <strong>₹4,999 (1 વર્ષ)</strong>
+                  QR કોડ સ્કેન કરી પ્લાન મુજબ રકમ ચૂકવો: <strong>₹199 (1 મહિનો)</strong>, <strong>₹999 (6 મહિના)</strong> અથવા <strong>₹1,599 (1 વર્ષ)</strong>
                 </div>
               </div>
               <div className="sub-step">

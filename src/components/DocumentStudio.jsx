@@ -38,7 +38,8 @@ import {
   MicOff,
   QrCode,
   Minus,
-  Layout
+  Layout,
+  ChevronDown
 } from 'lucide-react';
 import {
   extractVariables,
@@ -431,6 +432,67 @@ export default function DocumentStudio({
   const [pageSetup, setPageSetup] = useState(() => loadPageSetup());
   const [isPageSetupOpen, setIsPageSetupOpen] = useState(false);
   const [isFooterMenuOpen, setIsFooterMenuOpen] = useState(false);
+  const [isDocSettingsOpen, setIsDocSettingsOpen] = useState(false);
+  const docSettingsRef = useRef(null);
+
+  // Resizable Splitter state
+  const [formPanelWidth, setFormPanelWidth] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dastavej_form_width');
+      if (saved) {
+        const val = parseInt(saved, 10);
+        if (!isNaN(val) && val >= 280 && val <= 650) return val;
+      }
+    } catch (e) {}
+    return 400;
+  });
+  const [isDraggingSplitter, setIsDraggingSplitter] = useState(false);
+
+  const handleSplitterMouseDown = (e) => {
+    e.preventDefault();
+    setIsDraggingSplitter(true);
+
+    const onMouseMove = (moveEvent) => {
+      const maxWidth = Math.min(650, Math.floor(window.innerWidth * 0.55));
+      const newWidth = Math.max(280, Math.min(maxWidth, moveEvent.clientX));
+      setFormPanelWidth(newWidth);
+    };
+
+    const onMouseUp = () => {
+      setIsDraggingSplitter(false);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      setFormPanelWidth(curr => {
+        try { localStorage.setItem('dastavej_form_width', String(curr)); } catch (e) {}
+        return curr;
+      });
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
+
+  const handleSplitterReset = () => {
+    const nextWidth = formPanelWidth > 420 ? 320 : 420;
+    setFormPanelWidth(nextWidth);
+    try { localStorage.setItem('dastavej_form_width', String(nextWidth)); } catch (e) {}
+  };
+
+  useEffect(() => {
+    const handleClickOutsideSettings = (e) => {
+      if (docSettingsRef.current && !docSettingsRef.current.contains(e.target)) {
+        setIsDocSettingsOpen(false);
+      }
+    };
+    if (isDocSettingsOpen) {
+      document.addEventListener('mousedown', handleClickOutsideSettings);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutsideSettings);
+  }, [isDocSettingsOpen]);
 
   // Direct editing on paper state
   const [isDirectEditMode, setIsDirectEditMode] = useState(false);
@@ -1160,7 +1222,7 @@ export default function DocumentStudio({
     handleDirectEditBlur();
     const latestHtml = getLatestDocumentHtml();
     const filename = `${currentTemplate.id}_${new Date().toISOString().slice(0, 10)}`;
-    exportToWord(filename, currentTemplate.title, latestHtml);
+    exportToWord(filename, currentTemplate.title, latestHtml, activeFont?.family);
   };
 
   const handleDownloadPdf = async (e) => {
@@ -1453,8 +1515,12 @@ export default function DocumentStudio({
 
   return (
     <div
-      className={`studio-container ${isFullscreenReview ? 'fullscreen-review-active' : ''}`}
+      className={`studio-container ${isFullscreenReview ? 'fullscreen-review-active' : ''} ${isDraggingSplitter ? 'resizing-active' : ''}`}
       data-mobile-tab={mobileStudioTab}
+      style={{
+        '--form-panel-width': `${formPanelWidth}px`,
+        gridTemplateColumns: isFullscreenReview ? '1fr' : `${formPanelWidth}px 8px 1fr`
+      }}
     >
       <style>{`
         @media print {
@@ -1527,49 +1593,23 @@ export default function DocumentStudio({
           </p>
         </div>
 
-        {/* Action bar for quick helper actions */}
-        <div style={{
-          padding: '0.65rem 1.5rem',
-          background: '#f8fafc',
-          borderBottom: '1px solid var(--border-subtle)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '0.5rem',
-          flexWrap: 'wrap'
-        }}>
+        {/* Sleek Action bar for quick helper actions */}
+        <div className="form-quick-action-bar">
           <button
-            className="tool-toggle-btn"
+            type="button"
+            className="form-action-pill-btn"
             onClick={handleFillDemo}
             title="નમૂના માટે સેમ્પલ ડેટા ભરો"
-            style={{ fontSize: '0.75rem' }}
           >
-            <Sparkles size={13} style={{ color: 'var(--accent-gold-dark)' }} />
+            <Sparkles size={13} style={{ color: '#d97706' }} />
             <span>સેમ્પલ વિગતો ભરો</span>
           </button>
 
           <button
             type="button"
-            className={`tool-toggle-btn ${isListening ? 'listening-active' : ''}`}
-            onClick={toggleVoiceTyping}
-            title={isListening ? "વોઇસ ટાઇપિંગ બંધ કરો" : "ગુજરાતી બોલીને પેરામીટર ભરો (Speech to Text)"}
-            style={{
-              fontSize: '0.75rem',
-              color: isListening ? '#ffffff' : '#dc2626',
-              background: isListening ? '#dc2626' : undefined,
-              borderColor: isListening ? '#dc2626' : '#fca5a5',
-              fontWeight: 600
-            }}
-          >
-            {isListening ? <MicOff size={13} style={{ color: '#ffffff' }} /> : <Mic size={13} style={{ color: '#dc2626' }} />}
-            <span>{isListening ? 'સાંભળે છે...' : 'માઇકથી ભરો'}</span>
-          </button>
-
-          <button
-            className="tool-toggle-btn"
+            className="form-action-pill-btn"
             onClick={isPedhinamu ? handleResetPedhinamuDemo : handleClearForm}
             title={isPedhinamu ? "સેમ્પલ રીસેટ કરો" : "તમામ ફિલ્ડ ખાલી કરો"}
-            style={{ fontSize: '0.75rem' }}
           >
             <RotateCcw size={13} />
             <span>{isPedhinamu ? 'રીસેટ' : 'સાફ કરો'}</span>
@@ -2051,66 +2091,57 @@ export default function DocumentStudio({
 
                       return (
                         <div key={varKey} className="field-group">
-                          <label className="field-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                              <span>{varKey.replace(/_/g, " ")}</span>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  const parent = e.currentTarget.closest('.field-group');
-                                  const inp = parent?.querySelector('input, textarea');
-                                  if (inp) {
-                                    inp.focus();
-                                    lastActiveInputRef.current = inp;
-                                  }
-                                  if (!isListening) startVoiceTyping();
-                                }}
-                                style={{
-                                  border: 'none',
-                                  background: 'none',
-                                  cursor: 'pointer',
-                                  padding: '2px',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  color: isListening ? '#dc2626' : '#94a3b8'
-                                }}
-                                title="આ ફિલ્ડ માટે બોલીને લખો (Mic)"
-                              >
-                                <Mic size={12} />
-                              </button>
-                            </span>
-                            <span className="field-tag-key">&#123;&#123;{varKey}&#125;&#125;</span>
+                          <label className="field-label">
+                            <span>{varKey.replace(/_/g, " ")}</span>
                           </label>
-                          {isTextarea ? (
-                            <textarea
-                              className="input-control"
-                              data-var-key={varKey}
-                              value={val}
-                              placeholder={isEnglish
-                                ? `Enter ${varKey.replace(/_/g, " ")} here...`
-                                : `અહીં ${varKey.replace(/_/g, " ")} દાખલ કરો... (અંગ્રેજીમાં ટાઇપ કરશો તો આપોઆપ ગુજરાતી થશે)`
-                              }
-                              rows={2}
-                              onChange={e => handleInputChange(varKey, e.target.value)}
-                              onKeyDown={e => handlePhoneticKeyDown(e, isPhoneticActive, newVal => handleInputChange(varKey, newVal))}
-                              onFocus={e => { lastActiveInputRef.current = e.target; }}
-                            />
-                          ) : (
-                            <input
-                              type="text"
-                              className="input-control"
-                              data-var-key={varKey}
-                              value={val}
-                              placeholder={isEnglish
-                                ? `Enter ${varKey.replace(/_/g, " ")}...`
-                                : `અહીં ${varKey.replace(/_/g, " ")} દાખલ કરો...`
-                              }
-                              onChange={e => handleInputChange(varKey, e.target.value)}
-                              onKeyDown={e => handlePhoneticKeyDown(e, isPhoneticActive, newVal => handleInputChange(varKey, newVal))}
-                              onFocus={e => { lastActiveInputRef.current = e.target; }}
-                            />
-                          )}
+                          <div className="field-input-wrapper">
+                            {isTextarea ? (
+                              <textarea
+                                className="input-control field-input-control"
+                                data-var-key={varKey}
+                                value={val}
+                                placeholder={isEnglish
+                                  ? `Enter ${varKey.replace(/_/g, " ")}...`
+                                  : `અહીં દાખલ કરો...`
+                                }
+                                rows={2}
+                                onChange={e => handleInputChange(varKey, e.target.value)}
+                                onKeyDown={e => handlePhoneticKeyDown(e, isPhoneticActive, newVal => handleInputChange(varKey, newVal))}
+                                onFocus={e => { lastActiveInputRef.current = e.target; }}
+                              />
+                            ) : (
+                              <input
+                                type="text"
+                                className="input-control field-input-control"
+                                data-var-key={varKey}
+                                value={val}
+                                placeholder={isEnglish
+                                  ? `Enter ${varKey.replace(/_/g, " ")}...`
+                                  : `અહીં દાખલ કરો...`
+                                }
+                                onChange={e => handleInputChange(varKey, e.target.value)}
+                                onKeyDown={e => handlePhoneticKeyDown(e, isPhoneticActive, newVal => handleInputChange(varKey, newVal))}
+                                onFocus={e => { lastActiveInputRef.current = e.target; }}
+                              />
+                            )}
+                            <button
+                              type="button"
+                              className="field-inner-mic-btn"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                const parent = e.currentTarget.closest('.field-group');
+                                const inp = parent?.querySelector('input, textarea');
+                                if (inp) {
+                                  inp.focus();
+                                  lastActiveInputRef.current = inp;
+                                }
+                                if (!isListening) startVoiceTyping();
+                              }}
+                              title="આ ફિલ્ડ માટે બોલીને લખો (Mic)"
+                            >
+                              <Mic size={13} />
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
@@ -2152,6 +2183,16 @@ export default function DocumentStudio({
           </SubscriptionGuard>
         </div>
       </aside>
+
+      {/* Draggable Splitter Divider between Form and Preview */}
+      <div
+        className={`studio-splitter ${isDraggingSplitter ? 'dragging' : ''}`}
+        onMouseDown={handleSplitterMouseDown}
+        onDoubleClick={handleSplitterReset}
+        title="ખસેડીને પેરામીટર પેનલ નાની-મોટી કરો (ડબલ-ક્લિકથી રીસેટ)"
+      >
+        <div className="splitter-handle-pill" />
+      </div>
 
       {/* ================= RIGHT PANEL: LIVE DOCUMENT CANVAS ================= */}
       <main className="studio-preview-panel">
@@ -2243,150 +2284,419 @@ export default function DocumentStudio({
           </div>
         )}
 
-        {/* Preview Toolbar (Executive Two-Tier Command Ribbon) */}
-        <div className="preview-toolbar">
-
-          {/* Row 1: Document Settings, Paper Customization & Output Actions */}
-          <div className="toolbar-row primary-toolbar-row">
-            <div className="toolbar-group">
+        {/* Preview Toolbar (Streamlined Executive Command Bar) */}
+        <div className="preview-toolbar streamlined-toolbar">
+          <div className="toolbar-main-strip">
+            {/* Cluster 1: Edit & Input Modes */}
+            <div className="toolbar-cluster mode-cluster">
               {/* Mobile Back to Form Button (< 1024px) */}
               <button
                 type="button"
                 className="tool-toggle-btn studio-mobile-back-form-btn"
                 onClick={() => setMobileStudioTab('form')}
                 title="ફોર્મ / પેરામીટર્સ પેનલ પર પાછા જાઓ"
-                style={{ background: '#eff6ff', borderColor: '#93c5fd', color: '#1d4ed8', fontWeight: 700 }}
               >
                 <Edit3 size={13} />
-                <span>← પેરામીટર્સ</span>
+                <span>← ફોર્મ</span>
               </button>
 
-              {/* Page Setup Button */}
-              <button
-                className="tool-toggle-btn"
-                onClick={() => setIsPageSetupOpen(true)}
-                title="પેજ સાઇઝ (A4 / Legal), માર્જિન અને પ્રિન્ટ સ્પેસિંગ ગોઠવો"
-              >
-                <Sliders size={13} />
-                <span>પેજ સેટઅપ ({pageSetup.paperSize})</span>
-              </button>
-
-              {/* Footer Customization Menu Button */}
+              {/* On-Paper Live Editing Toggle */}
               <button
                 type="button"
-                className={`tool-toggle-btn ${pageSetup.footerSetup?.enabled !== false ? 'active' : ''}`}
-                onClick={() => setIsFooterMenuOpen(true)}
-                title="દસ્તાવેજના ફૂટરનું કસ્ટમાઇઝેશન (પાના નંબર, અસીલ નામ, તારીખ, વકીલ સહી, લાઇન સ્ટાઇલ)"
+                className={`tool-toggle-btn pill-btn ${isDirectEditMode ? 'active' : ''}`}
+                onClick={() => setIsDirectEditMode(!isDirectEditMode)}
+                title="કાગળ પર સીધું ક્લિક કરીને લખાણ સુધારો (On-Paper Editing)"
               >
-                <Layout size={13} />
-                <span>ફૂટર મેનુ {pageSetup.footerSetup?.enabled === false ? '(બંધ)' : ''}</span>
+                <Edit3 size={13} />
+                <span>ડાયરેક્ટ એડિટ {isDirectEditMode ? '✓' : ''}</span>
               </button>
 
-              {/* Stamp Paper Mode Toggle */}
-              <button
-                className={`tool-toggle-btn ${stampPaperMode ? 'active' : ''}`}
-                onClick={() => setStampPaperMode(!stampPaperMode)}
-                title="સરકારી ₹ ૫૦ / ₹ ૧૦૦ / ₹ ૩૦૦ ના સ્ટેમ્પ પેપર પર પ્રિન્ટ માટે ઉપરથી માર્જિન છોડો"
-              >
-                <FileCheck size={13} />
-                <span>સ્ટેમ્પ પેપર: {stampPaperMode ? `${stampMarginMm}mm` : 'બંધ'}</span>
-              </button>
-
-              {stampPaperMode && (
-                <div className="stamp-offset-slider-box">
-                  <span className="stamp-offset-label">માર્જિન:</span>
-                  <input
-                    type="range"
-                    min="60"
-                    max="140"
-                    value={stampMarginMm}
-                    onChange={e => setStampMarginMm(Number(e.target.value))}
-                    className="stamp-range-input"
-                  />
-                  <span className="stamp-offset-val">{stampMarginMm}mm</span>
-                </div>
-              )}
-
-              {/* Digital QR Verification Toggle */}
+              {/* Gujarati Voice Typing Button */}
               <button
                 type="button"
-                className={`tool-toggle-btn ${pageSetup.showVerificationQR !== false ? 'active' : ''}`}
-                onClick={() => {
-                  const updated = {
-                    ...pageSetup,
-                    showVerificationQR: pageSetup.showVerificationQR === false ? true : false
-                  };
-                  handleSavePageSetup(updated);
-                }}
-                title="દસ્તાવેજના અંતે સત્તાવાર QR કોડ સત્યતા બેજ ચાલુ / બંધ કરો"
+                className={`phonetic-toggle-btn voice-dictation-btn ${isListening ? 'listening-active' : ''}`}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={toggleVoiceTyping}
+                title={isListening ? "વોઇસ ટાઇપિંગ બંધ કરો (Stop)" : "ગુજરાતી બોલીને લખો (Speech to Text)"}
               >
-                <QrCode size={13} />
-                <span>QR Code: {pageSetup.showVerificationQR !== false ? 'ચાલુ' : 'બંધ'}</span>
+                {isListening ? <MicOff size={13} style={{ color: '#ffffff' }} /> : <Mic size={13} style={{ color: '#dc2626' }} />}
+                <span>{isListening ? 'સાંભળે છે...' : 'માઇક'}</span>
               </button>
 
-              {/* Watermark 1-Click Quick Toggle */}
+              {/* Phonetic Keyboard Toggle */}
               <button
                 type="button"
-                className={`tool-toggle-btn ${pageSetup.showWatermark ? 'active' : ''}`}
-                onClick={() => {
-                  const updated = {
-                    ...pageSetup,
-                    showWatermark: !pageSetup.showWatermark
-                  };
-                  handleSavePageSetup(updated);
-                }}
-                title="કાગળ પર ત્રાંસો 'કાચો મુસદ્દો / DRAFT' વોટરમાર્ક ૧-ક્લિકમાં ચાલુ / બંધ કરો"
+                className={`phonetic-toggle-btn ${isPhoneticActive ? 'active' : ''}`}
+                onClick={() => setIsPhoneticActive(!isPhoneticActive)}
+                title="અંગ્રેજીમાં ટાઇપ કરતા આપોઆપ ગુજરાતી થશે (દા.ત. rajesh -> રાજેશ). શોર્ટકટ: Ctrl+G"
               >
-                <Layers size={13} />
-                <span>વોટરમાર્ક: {pageSetup.showWatermark ? 'ચાલુ' : 'બંધ'}</span>
+                <Keyboard size={13} />
+                <span>{isPhoneticActive ? 'ગુજરાતી' : 'English'}</span>
               </button>
-
-              {/* Pedhinamu Specific Toggles */}
-              {isPedhinamu && (
-                <>
-                  <button
-                    type="button"
-                    className={`tool-toggle-btn ${showTreeMap ? 'active' : ''}`}
-                    onClick={() => setShowTreeMap(!showTreeMap)}
-                    title="વિઝ્યુઅલ વારસાઈ આંબો (Tree Chart) ચાલુ / બંધ"
-                  >
-                    <GitBranch size={13} />
-                    <span>આંબો (Tree): {showTreeMap ? 'ચાલુ' : 'બંધ'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    className={`tool-toggle-btn ${showTable ? 'active' : ''}`}
-                    onClick={() => setShowTable(!showTable)}
-                    title="વારસદાર વિગત કોષ્ટક (Table) ચાલુ / બંધ"
-                  >
-                    <FileText size={13} />
-                    <span>ટેબલ: {showTable ? 'ચાલુ' : 'બંધ'}</span>
-                  </button>
-                </>
-              )}
-
-              {customDirectHtml !== null && (
-                <button
-                  className="tool-toggle-btn btn-reset-custom"
-                  onClick={handleResetDirectEdit}
-                  title="ડાયરેક્ટ કરેલા સુધારા રદ કરી મૂળ ફોર્મ મુજબ કરવું"
-                  style={{ color: '#dc2626', borderColor: '#fca5a5', background: '#fef2f2' }}
-                >
-                  <RotateCcw size={13} />
-                  <span>Reset</span>
-                </button>
-              )}
             </div>
 
-            {/* Action Export Buttons + Zoom Controls */}
-            <div className="toolbar-actions">
+            <div className="toolbar-v-divider" />
+
+            {/* Cluster 2: Typography & Formatting */}
+            <div className="toolbar-cluster typography-cluster">
+              {/* Legal Font Selector */}
+              <div className="toolbar-font-box">
+                <Type size={13} style={{ color: 'var(--primary)' }} />
+                <select
+                  className="font-select-control"
+                  value={selectedFontId}
+                  onChange={e => setSelectedFontId(e.target.value)}
+                  title="દસ્તાવેજ માટે ગુજરાતી યુનિકોડ ફોન્ટ પસંદ કરો (૧૧ ફોન્ટ ઉપલબ્ધ)"
+                >
+                  <optgroup label="📝 ટેક્સ્ટ ફોન્ટ (લખાણ માટે)">
+                    {LEGAL_FONTS.filter(f => f.category === 'text').map(f => (
+                      <option key={f.id} value={f.id}>
+                        {f.label || f.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="🎨 ડિસ્પ્લે ફોન્ટ (ટાઈટલ માટે)">
+                    {LEGAL_FONTS.filter(f => f.category === 'display').map(f => (
+                      <option key={f.id} value={f.id}>
+                        {f.label || f.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
+              </div>
+
+              {/* Unified Font Size Stepper */}
+              <div
+                className="font-size-stepper-box"
+                title={selectedWordSize ? `સિલેક્ટ કરેલ શબ્દ સાઈઝ (${selectedWordSize}pt)` : `દસ્તાવેજ ફોન્ટ સાઈઝ (${pageSetup.fontSizePt || 13}pt)`}
+              >
+                <button
+                  type="button"
+                  className="font-size-btn"
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => handleUnifiedFontSizeChange(-1)}
+                  disabled={!selectedWordSize && (pageSetup.fontSizePt || 13) <= 9}
+                  title="ફોન્ટ નાના કરો (A-)"
+                  aria-label="Decrease Font Size"
+                >
+                  <Minus size={12} strokeWidth={2.5} />
+                </button>
+                <span
+                  className="font-size-display-text"
+                  style={{ color: selectedWordSize ? '#1d4ed8' : '#0f172a', fontWeight: 700 }}
+                >
+                  {selectedWordSize ? `${selectedWordSize}pt` : `${pageSetup.fontSizePt || 13}pt`}
+                </span>
+                <button
+                  type="button"
+                  className="font-size-btn"
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => handleUnifiedFontSizeChange(1)}
+                  disabled={!selectedWordSize && (pageSetup.fontSizePt || 13) >= 24}
+                  title="ફોન્ટ મોટા કરો (A+)"
+                  aria-label="Increase Font Size"
+                >
+                  <Plus size={12} strokeWidth={2.5} />
+                </button>
+              </div>
+
+              {/* Text Formatter Option: Bold, Italic, Underline */}
+              <div className="formatting-btn-group">
+                <button
+                  type="button"
+                  className="format-icon-btn"
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => handleFormatText('bold')}
+                  title="Bold (Ctrl+B)"
+                  aria-label="Bold"
+                >
+                  <Bold size={13} strokeWidth={2.8} />
+                </button>
+                <button
+                  type="button"
+                  className="format-icon-btn"
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => handleFormatText('italic')}
+                  title="Italic (Ctrl+I)"
+                  aria-label="Italic"
+                >
+                  <Italic size={13} strokeWidth={2.5} />
+                </button>
+                <button
+                  type="button"
+                  className="format-icon-btn"
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => handleFormatText('underline')}
+                  title="Underline (Ctrl+U)"
+                  aria-label="Underline"
+                >
+                  <Underline size={13} strokeWidth={2.5} />
+                </button>
+              </div>
+            </div>
+
+            <div className="toolbar-v-divider" />
+
+            {/* Cluster 3: Undo / Redo */}
+            <div className="toolbar-cluster history-cluster">
+              <div className="formatting-btn-group">
+                <button
+                  type="button"
+                  className="format-icon-btn"
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={handleUndo}
+                  title="Undo (Ctrl+Z)"
+                  aria-label="Undo"
+                >
+                  <Undo2 size={13} strokeWidth={2.2} />
+                </button>
+                <button
+                  type="button"
+                  className="format-icon-btn"
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={handleRedo}
+                  title="Redo (Ctrl+Y)"
+                  aria-label="Redo"
+                >
+                  <Redo2 size={13} strokeWidth={2.2} />
+                </button>
+              </div>
+            </div>
+
+            {/* Flexible Spacer: pushes action tools to right on wide screen, collapses when narrow */}
+            <div className="toolbar-spacer" />
+
+            {/* Cluster 4: Settings & Output Actions */}
+            <div className="toolbar-cluster action-cluster">
+              {/* Document Setup Popover Dropdown Button */}
+              <div className="doc-settings-popover-container" ref={docSettingsRef}>
+                <button
+                  type="button"
+                  className={`tool-toggle-btn doc-settings-trigger-btn ${isDocSettingsOpen ? 'active' : ''}`}
+                  onClick={() => setIsDocSettingsOpen(!isDocSettingsOpen)}
+                  title="પેજ સેટઅપ, સ્ટેમ્પ પેપર, ફૂટર, વોટરમાર્ક અને અન્ય સાધનો"
+                >
+                  <Sliders size={13} />
+                  <span>સેટિંગ્સ</span>
+                  {stampPaperMode && <span className="active-dot" title="સ્ટેમ્પ પેપર ચાલુ છે" />}
+                  <ChevronDown size={12} className={`chevron-transition ${isDocSettingsOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Popover Dropdown Card */}
+                {isDocSettingsOpen && (
+                  <div className="doc-settings-dropdown-menu">
+                    <div className="dropdown-menu-header">
+                      <span>દસ્તાવેજ અને પેજ સેટિંગ્સ</span>
+                      <button
+                        type="button"
+                        className="dropdown-close-btn"
+                        onClick={() => setIsDocSettingsOpen(false)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <div className="dropdown-menu-body">
+                      {/* Item 1: Page Setup Modal Trigger */}
+                      <button
+                        type="button"
+                        className="dropdown-menu-item"
+                        onClick={() => {
+                          setIsDocSettingsOpen(false);
+                          setIsPageSetupOpen(true);
+                        }}
+                      >
+                        <Sliders size={14} style={{ color: 'var(--primary)' }} />
+                        <div className="item-text">
+                          <span className="item-title">પેજ માપ & માર્જિન ({pageSetup.paperSize})</span>
+                          <span className="item-desc">A4 / Legal પેપર સાઈઝ અને પ્રિન્ટ માર્જિન સેટ કરો</span>
+                        </div>
+                      </button>
+
+                      {/* Item 2: Footer Customization Trigger */}
+                      <button
+                        type="button"
+                        className="dropdown-menu-item"
+                        onClick={() => {
+                          setIsDocSettingsOpen(false);
+                          setIsFooterMenuOpen(true);
+                        }}
+                      >
+                        <Layout size={14} style={{ color: '#0284c7' }} />
+                        <div className="item-text">
+                          <span className="item-title">ફૂટર મેનુ {pageSetup.footerSetup?.enabled === false ? '(બંધ)' : ''}</span>
+                          <span className="item-desc">પાના નંબર, અસીલ નામ, તારીખ અને વકીલ સહી લાઇન</span>
+                        </div>
+                      </button>
+
+                      {/* Item 3: Stamp Paper Toggle + Slider */}
+                      <div className="dropdown-menu-item-block">
+                        <div className="item-block-header">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <FileCheck size={14} style={{ color: stampPaperMode ? '#b45309' : '#64748b' }} />
+                            <span className="item-title">સરકારી સ્ટેમ્પ પેપર ઝોન</span>
+                          </div>
+                          <button
+                            type="button"
+                            className={`toggle-switch-pill ${stampPaperMode ? 'on' : 'off'}`}
+                            onClick={() => setStampPaperMode(!stampPaperMode)}
+                          >
+                            {stampPaperMode ? 'ચાલુ' : 'બંધ'}
+                          </button>
+                        </div>
+                        {stampPaperMode && (
+                          <div className="stamp-slider-integrated">
+                            <div className="stamp-slider-header">
+                              <span>ઉપરનું માર્જિન:</span>
+                              <strong>{stampMarginMm} mm</strong>
+                            </div>
+                            <input
+                              type="range"
+                              min="60"
+                              max="140"
+                              value={stampMarginMm}
+                              onChange={e => setStampMarginMm(Number(e.target.value))}
+                              className="stamp-range-input-full"
+                            />
+                            <div className="stamp-slider-labels">
+                              <span>₹ ૫૦ (૭૫mm)</span>
+                              <span>₹ ૧૦૦ (૯૦mm)</span>
+                              <span>₹ ૩૦૦ (૧૧૫mm)</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Item 4: Watermark 1-Click Toggle */}
+                      <div className="dropdown-menu-item-row">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <Layers size={14} style={{ color: pageSetup.showWatermark ? '#3b82f6' : '#64748b' }} />
+                          <div className="item-text">
+                            <span className="item-title">કાચો મુસદ્દો વોટરમાર્ક</span>
+                            <span className="item-desc">કાગળ પર ત્રાંસો DRAFT વોટરમાર્ક</span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className={`toggle-switch-pill ${pageSetup.showWatermark ? 'on' : 'off'}`}
+                          onClick={() => {
+                            const updated = { ...pageSetup, showWatermark: !pageSetup.showWatermark };
+                            handleSavePageSetup(updated);
+                          }}
+                        >
+                          {pageSetup.showWatermark ? 'ચાલુ' : 'બંધ'}
+                        </button>
+                      </div>
+
+                      {/* Item 5: Digital QR Verification Toggle */}
+                      <div className="dropdown-menu-item-row">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <QrCode size={14} style={{ color: pageSetup.showVerificationQR !== false ? '#059669' : '#64748b' }} />
+                          <div className="item-text">
+                            <span className="item-title">સત્તાવાર QR કોડ સત્યતા બેજ</span>
+                            <span className="item-desc">છેલ્લા પાને ઓનલાઈન ખરાઈ QR કોડ</span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className={`toggle-switch-pill ${pageSetup.showVerificationQR !== false ? 'on' : 'off'}`}
+                          onClick={() => {
+                            const updated = {
+                              ...pageSetup,
+                              showVerificationQR: pageSetup.showVerificationQR === false ? true : false
+                            };
+                            handleSavePageSetup(updated);
+                          }}
+                        >
+                          {pageSetup.showVerificationQR !== false ? 'ચાલુ' : 'બંધ'}
+                        </button>
+                      </div>
+
+                      {/* Item 6: Pedhinamu Specific Toggles */}
+                      {isPedhinamu && (
+                        <>
+                          <div className="dropdown-menu-item-row">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <GitBranch size={14} style={{ color: showTreeMap ? '#8b5cf6' : '#64748b' }} />
+                              <span className="item-title">વારસાઈ આંબો (Tree Chart)</span>
+                            </div>
+                            <button
+                              type="button"
+                              className={`toggle-switch-pill ${showTreeMap ? 'on' : 'off'}`}
+                              onClick={() => setShowTreeMap(!showTreeMap)}
+                            >
+                              {showTreeMap ? 'ચાલુ' : 'બંધ'}
+                            </button>
+                          </div>
+
+                          <div className="dropdown-menu-item-row">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <FileText size={14} style={{ color: showTable ? '#8b5cf6' : '#64748b' }} />
+                              <span className="item-title">વારસદાર વિગત કોષ્ટક</span>
+                            </div>
+                            <button
+                              type="button"
+                              className={`toggle-switch-pill ${showTable ? 'on' : 'off'}`}
+                              onClick={() => setShowTable(!showTable)}
+                            >
+                              {showTable ? 'ચાલુ' : 'બંધ'}
+                            </button>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Item 7: Quick Actions (Page Break & Character Palette) */}
+                      <div className="dropdown-menu-quick-grid">
+                        <button
+                          type="button"
+                          className="quick-grid-btn"
+                          onClick={() => {
+                            handleInsertPageBreak();
+                            setIsDocSettingsOpen(false);
+                          }}
+                        >
+                          <SplitSquareVertical size={13} />
+                          <span>+ નવું પેજ (Break)</span>
+                        </button>
+                        <button
+                          type="button"
+                          className={`quick-grid-btn ${isKeyPaletteOpen ? 'active' : ''}`}
+                          onClick={() => {
+                            setIsKeyPaletteOpen(!isKeyPaletteOpen);
+                            setIsDocSettingsOpen(false);
+                          }}
+                        >
+                          <Sparkles size={13} style={{ color: '#d97706' }} />
+                          <span>અક્ષર પેલેટ</span>
+                        </button>
+                      </div>
+
+                      {/* Reset custom edits button if present */}
+                      {customDirectHtml !== null && (
+                        <button
+                          type="button"
+                          className="dropdown-menu-reset-btn"
+                          onClick={() => {
+                            handleResetDirectEdit();
+                            setIsDocSettingsOpen(false);
+                          }}
+                        >
+                          <RotateCcw size={13} />
+                          <span>ડાયરેક્ટ સુધારા રદ કરી મૂળ ફોર્મ મુજબ કરો</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Export Buttons */}
               <button
                 className="btn-secondary"
                 onClick={handleCopy}
                 title="તમામ લખાણ કોપી કરો"
               >
-                {copied ? <Check size={14} style={{ color: '#34d399' }} /> : <Copy size={14} />}
+                {copied ? <Check size={13} style={{ color: '#34d399' }} /> : <Copy size={13} />}
                 <span>{copied ? 'કોપી થયું!' : 'કોપી'}</span>
               </button>
 
@@ -2396,7 +2706,7 @@ export default function DocumentStudio({
                   onClick={handleExportWord}
                   title="Microsoft Word (.docx) ફોર્મેટમાં ડાઉનલોડ"
                 >
-                  <Download size={14} />
+                  <Download size={13} />
                   <span>Word</span>
                 </button>
               </SubscriptionGuard>
@@ -2408,7 +2718,7 @@ export default function DocumentStudio({
                   title="દસ્તાવેજ સીધો PDF ફોર્મેટમાં ડાઉનલોડ કરો (.pdf)"
                   disabled={isGeneratingPdf}
                 >
-                  {isGeneratingPdf ? <RotateCcw size={14} className="spin" /> : <FileDown size={14} />}
+                  {isGeneratingPdf ? <RotateCcw size={13} className="spin" /> : <FileDown size={13} />}
                   <span>{isGeneratingPdf ? 'ડાઉનલોડ...' : 'PDF'}</span>
                 </button>
               </SubscriptionGuard>
@@ -2419,11 +2729,16 @@ export default function DocumentStudio({
                   onClick={handlePrint}
                   title="A4 / Legal કાગળ પર પ્રિન્ટ કાઢો અથવા PDF તરીકે સેવ કરો"
                 >
-                  <Printer size={14} />
+                  <Printer size={13} />
                   <span>Print</span>
                 </button>
               </SubscriptionGuard>
+            </div>
 
+            <div className="toolbar-v-divider" />
+
+            {/* Cluster 5: View & Zoom Controls */}
+            <div className="toolbar-cluster view-cluster">
               {/* Zoom Segmented Control */}
               <div className="zoom-segmented-control">
                 <button
@@ -2454,203 +2769,8 @@ export default function DocumentStudio({
                 onClick={() => setIsFullscreenReview(!isFullscreenReview)}
                 title={isFullscreenReview ? "Exit Full Screen" : "Full Screen"}
                 aria-label={isFullscreenReview ? "Exit Full Screen" : "Full Screen"}
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: '6px',
-                  border: isFullscreenReview ? '1px solid #3b82f6' : '1px solid #cbd5e1',
-                  background: isFullscreenReview ? '#eff6ff' : '#ffffff',
-                  color: isFullscreenReview ? '#1d4ed8' : '#475569',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
               >
-                {isFullscreenReview ? <Minimize2 size={15} strokeWidth={2.2} /> : <Maximize2 size={15} strokeWidth={2.2} />}
-              </button>
-            </div>
-          </div>
-
-          {/* Row 2: Gujarati Input, Typography, Formatting & In-Paper Editing */}
-          <div className="toolbar-row secondary-toolbar-row">
-            <div className="toolbar-group">
-              {/* On-Paper Live Editing Toggle (Moved to first position) */}
-              <button
-                type="button"
-                className={`tool-toggle-btn ${isDirectEditMode ? 'active' : ''}`}
-                onClick={() => setIsDirectEditMode(!isDirectEditMode)}
-                title="કાગળ પર સીધું ક્લિક કરીને લખાણ સુધારો (On-Paper Editing)"
-              >
-                <Edit3 size={13} />
-                <span>ડાયરેક્ટ એડિટ: {isDirectEditMode ? 'ચાલુ' : 'બંધ'}</span>
-              </button>
-
-              {/* Phonetic Keyboard Toggle (Gujarati Typing) */}
-              <button
-                type="button"
-                className={`phonetic-toggle-btn ${isPhoneticActive ? 'active' : ''}`}
-                onClick={() => setIsPhoneticActive(!isPhoneticActive)}
-                title="અંગ્રેજીમાં ટાઇપ કરતા આપોઆપ ગુજરાતી થશે (દા.ત. rajesh -> રાજેશ). શોર્ટકટ: Ctrl+G"
-              >
-                <Keyboard size={14} />
-                <span>{isPhoneticActive ? 'ગુજરાતી ટાઇપિંગ: ચાલુ' : 'English Typing'}</span>
-              </button>
-
-              {/* Gujarati Voice Typing Button */}
-              <button
-                type="button"
-                className={`phonetic-toggle-btn voice-dictation-btn ${isListening ? 'listening-active' : ''}`}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={toggleVoiceTyping}
-                title={isListening ? "વોઇસ ટાઇપિંગ બંધ કરો (Stop)" : "ગુજરાતી બોલીને લખો (Speech to Text)"}
-              >
-                {isListening ? <MicOff size={14} style={{ color: '#ffffff' }} /> : <Mic size={14} style={{ color: '#dc2626' }} />}
-                <span>{isListening ? 'સાંભળે છે...' : 'બોલીને લખો (Mic)'}</span>
-              </button>
-
-              <div className="toolbar-v-divider" />
-
-              {/* Legal Font Selector */}
-              <div className="toolbar-font-box">
-                <Type size={14} style={{ color: 'var(--primary)' }} />
-                <select
-                  className="font-select-control"
-                  value={selectedFontId}
-                  onChange={e => setSelectedFontId(e.target.value)}
-                  title="દસ્તાવેજ માટે પ્રમાણિત લીગલ ફોન્ટ પસંદ કરો"
-                >
-                  {LEGAL_FONTS.map(f => (
-                    <option key={f.id} value={f.id}>
-                      {f.label || f.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Unified Font Size Stepper */}
-              <div
-                className="font-size-stepper-box"
-                title={selectedWordSize ? `સિલેક્ટ કરેલ શબ્દ સાઈઝ (${selectedWordSize}pt) - ક્લિક કરીને વધારો/ઘટાડો` : `દસ્તાવેજ ફોન્ટ સાઈઝ (${pageSetup.fontSizePt || 13}pt) - ક્લિક કરીને વધારો/ઘટાડો`}
-              >
-                <button
-                  type="button"
-                  className="font-size-btn"
-                  onMouseDown={e => e.preventDefault()}
-                  onClick={() => handleUnifiedFontSizeChange(-1)}
-                  disabled={!selectedWordSize && (pageSetup.fontSizePt || 13) <= 9}
-                  title={selectedWordSize ? "સિલેક્ટ કરેલો શબ્દ નાનો કરો (A-)" : "આખા દસ્તાવેજના ફોન્ટ નાના કરો (A-)"}
-                  aria-label="Decrease Font Size"
-                >
-                  <Minus size={13} strokeWidth={2.5} />
-                  <span className="font-step-letter">A-</span>
-                </button>
-                <span
-                  className="font-size-display-text"
-                  title={selectedWordSize ? `સિલેક્ટ કરેલ શબ્દ સાઈઝ: ${selectedWordSize}pt` : `દસ્તાવેજ ફોન્ટ સાઈઝ: ${pageSetup.fontSizePt || 13}pt`}
-                  style={{
-                    color: selectedWordSize ? '#1d4ed8' : '#0f172a',
-                    fontWeight: 700
-                  }}
-                >
-                  {selectedWordSize ? `${selectedWordSize}pt` : `${pageSetup.fontSizePt || 13}pt`}
-                </span>
-                <button
-                  type="button"
-                  className="font-size-btn"
-                  onMouseDown={e => e.preventDefault()}
-                  onClick={() => handleUnifiedFontSizeChange(1)}
-                  disabled={!selectedWordSize && (pageSetup.fontSizePt || 13) >= 24}
-                  title={selectedWordSize ? "સિલેક્ટ કરેલો શબ્દ મોટો કરો (A+)" : "આખા દસ્તાવેજના ફોન્ટ મોટા કરો (A+)"}
-                  aria-label="Increase Font Size"
-                >
-                  <Plus size={13} strokeWidth={2.5} />
-                  <span className="font-step-letter">A+</span>
-                </button>
-              </div>
-
-              {/* Text Formatter Option: Bold, Italic, Underline */}
-              <div className="formatting-btn-group" title="ટેક્સ્ટ ફોર્મેટિંગ (લખાણ સિલેક્ટ કરીને બોલ્ડ / ઇટાલિક / અંડરલાઇન કરો)">
-                <button
-                  type="button"
-                  className="format-icon-btn"
-                  onMouseDown={e => e.preventDefault()}
-                  onClick={() => handleFormatText('bold')}
-                  title="Bold (ઘાટા અક્ષરો) - Ctrl+B"
-                  aria-label="Bold"
-                >
-                  <Bold size={15} strokeWidth={2.8} />
-                </button>
-                <button
-                  type="button"
-                  className="format-icon-btn"
-                  onMouseDown={e => e.preventDefault()}
-                  onClick={() => handleFormatText('italic')}
-                  title="Italic (ત્રાંસા અક્ષરો) - Ctrl+I"
-                  aria-label="Italic"
-                >
-                  <Italic size={15} strokeWidth={2.5} />
-                </button>
-                <button
-                  type="button"
-                  className="format-icon-btn"
-                  onMouseDown={e => e.preventDefault()}
-                  onClick={() => handleFormatText('underline')}
-                  title="Underline (નીચે લીટી) - Ctrl+U"
-                  aria-label="Underline"
-                >
-                  <Underline size={15} strokeWidth={2.5} />
-                </button>
-              </div>
-
-              {/* Undo / Redo Tools */}
-              <div className="formatting-btn-group" title="ફેરફારો પૂર્વવત (Undo / Redo)">
-                <button
-                  type="button"
-                  className="format-icon-btn"
-                  onMouseDown={e => e.preventDefault()}
-                  onClick={handleUndo}
-                  title="Undo (છેલ્લો ફેરફાર પાછો ખેંચો) - Ctrl+Z"
-                  aria-label="Undo"
-                >
-                  <Undo2 size={15} strokeWidth={2.2} />
-                </button>
-                <button
-                  type="button"
-                  className="format-icon-btn"
-                  onMouseDown={e => e.preventDefault()}
-                  onClick={handleRedo}
-                  title="Redo (પાછો ખેંચેલ ફેરફાર ફરી કરો) - Ctrl+Y"
-                  aria-label="Redo"
-                >
-                  <Redo2 size={15} strokeWidth={2.2} />
-                </button>
-              </div>
-            </div>
-
-            {/* In-Paper Actions Group */}
-            <div className="toolbar-group">
-              {/* Page Break Inserter */}
-              <button
-                className="tool-toggle-btn"
-                onMouseDown={e => e.preventDefault()}
-                onClick={handleInsertPageBreak}
-                title="જ્યાં કર્સર હોય ત્યાંથી નવું પાનું (Page Break) બનાવો"
-              >
-                <SplitSquareVertical size={13} />
-                <span>+ નવું પેજ</span>
-              </button>
-
-              {/* On-Screen Gujarati Character Palette (Last position) */}
-              <button
-                type="button"
-                className={`phonetic-toggle-btn ${isKeyPaletteOpen ? 'active' : ''}`}
-                onClick={() => setIsKeyPaletteOpen(!isKeyPaletteOpen)}
-                title="ઓન-સ્ક્રીન ગુજરાતી અક્ષર પેલેટ & કીબોર્ડ ગાઈડ"
-              >
-                <Sparkles size={14} style={{ color: isKeyPaletteOpen ? '#b45309' : '#d97706' }} />
-                <span>અક્ષર પેલેટ</span>
+                {isFullscreenReview ? <Minimize2 size={14} strokeWidth={2.2} /> : <Maximize2 size={14} strokeWidth={2.2} />}
               </button>
             </div>
           </div>

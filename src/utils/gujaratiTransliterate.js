@@ -295,8 +295,8 @@ export function transliterateSentence(text) {
  * Input KeyDown / Input Handler for React input/textarea and contentEditable elements
  * Automatically transliterates the last word when pressing Space, Enter, Tab or Punctuation
  */
-export function handlePhoneticKeyDown(e, isEnabled, onTextChange) {
-  if (!isEnabled) return;
+export function handlePhoneticKeyDown(e, isEnabled = true, onTextChange) {
+  if (isEnabled === false) return;
 
   // Toggle on Ctrl+G
   if (e.ctrlKey && (e.key === 'g' || e.key === 'G')) {
@@ -361,7 +361,7 @@ export function handlePhoneticKeyDown(e, isEnabled, onTextChange) {
     return;
   }
 
-  // Case 2: ContentEditable elements (Direct on-paper editing in Document Studio)
+  // Case 2: ContentEditable elements (Direct on-paper editing in Document Studio & OpenWriter)
   const isEditable = input.isContentEditable || 
                      input.getAttribute?.('contenteditable') === 'true' || 
                      (input.closest && input.closest('[contenteditable="true"]'));
@@ -376,13 +376,35 @@ export function handlePhoneticKeyDown(e, isEnabled, onTextChange) {
     let textNode = range.startContainer;
     let offset = range.startOffset;
 
-    // If cursor is at an element node, look at previous text node child
+    // Helper to find the deepest text node inside any node container
+    const getLastTextDescendant = (node) => {
+      if (!node) return null;
+      if (node.nodeType === Node.TEXT_NODE) return node;
+      if (node.childNodes && node.childNodes.length > 0) {
+        for (let i = node.childNodes.length - 1; i >= 0; i--) {
+          const found = getLastTextDescendant(node.childNodes[i]);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    // If cursor is at an element node, find preceding text node
     if (textNode.nodeType === Node.ELEMENT_NODE) {
       if (offset > 0 && textNode.childNodes.length >= offset) {
         const prevChild = textNode.childNodes[offset - 1];
-        if (prevChild && prevChild.nodeType === Node.TEXT_NODE) {
-          textNode = prevChild;
-          offset = prevChild.textContent.length;
+        const deepText = getLastTextDescendant(prevChild);
+        if (deepText) {
+          textNode = deepText;
+          offset = deepText.textContent.length;
+        } else {
+          return;
+        }
+      } else if (textNode.childNodes.length > 0) {
+        const deepText = getLastTextDescendant(textNode);
+        if (deepText) {
+          textNode = deepText;
+          offset = deepText.textContent.length;
         } else {
           return;
         }
@@ -465,6 +487,10 @@ export function handlePhoneticKeyDown(e, isEnabled, onTextChange) {
         sel.addRange(afterRange);
       }
     }
+
+    try {
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    } catch (evErr) {}
 
     if (onTextChange && typeof onTextChange === 'function') {
       onTextChange();

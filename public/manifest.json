@@ -1,0 +1,85 @@
+{
+  "name": "દસ્તાવેજ માસ્ટર | Dastavej Pro",
+  "short_name": "દસ્તાવેજ માસ્ટર",
+  "description": "ગુજરાતી કાનૂની દસ્તાવેજ નિર્માણ પ્લેટફોર્મ - A4/Legal ઇ-સ્ટેમ્પ પેપર પ્રિન્ટિંગ, ઓપન રાઇટર અને રેવન્યુ ઓટોમેશન સ્ટુડિયો",
+  "start_url": "/",
+  "scope": "/",
+  "id": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "theme_color": "#1e3a8a",
+  "background_color": "#f8fafc",
+  "lang": "gu",
+  "dir": "ltr",
+  "categories": ["productivity", "utilities", "business"],
+  "icons": [
+    {
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "દસ્તાવેજ સ્ટુડિયો (Studio)",
+      "short_name": "સ્ટુડિયો",
+      "description": "કાનૂની દસ્તાવેજ બનાવો અને પ્રિન્ટ કરો",
+      "url": "/?tab=studio",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "ઓપન રાઇટર (Open Writer)",
+      "short_name": "રાઇટર",
+      "description": "મુક્ત કાનૂની લખાણ અને ટાઇપિંગ",
+      "url": "/?tab=writer",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "ટેમ્પલેટ્સ લાયબ્રેરી (Templates)",
+      "short_name": "ટેમ્પલેટ્સ",
+      "description": "તમામ ગુજરાતી કાનૂની ફોર્મેટ્સ",
+      "url": "/?tab=templates",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "અસીલ હિસ્ટ્રી (Records)",
+      "short_name": "હિસ્ટ્રી",
+      "description": "સાચવેલા અસીલ દસ્તાવેજો જુઓ",
+      "url": "/?tab=records",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192" }]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}
+

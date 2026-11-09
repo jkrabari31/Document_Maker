@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="60%" stop-color="#1e3a8a"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </radialGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="50%" stop-color="#d97706"/>
+      <stop offset="100%" stop-color="#b45309"/>
+    </linearGradient>
+    <filter id="dropShadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Background rounded rect -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)"/>
+
+  <!-- Decorative gold border ring -->
+  <circle cx="256" cy="256" r="195" fill="none" stroke="url(#goldGrad)" stroke-width="8" opacity="0.6"/>
+
+  <!-- Main Legal Document -->
+  <g filter="url(#dropShadow)">
+    <!-- Document Body -->
+    <path d="M 156 128 L 306 128 L 356 178 L 356 384 C 356 392.8 348.8 400 340 400 L 156 400 C 147.2 400 140 392.8 140 384 L 140 144 C 140 135.2 147.2 128 156 128 Z" fill="#ffffff"/>
+    
+    <!-- Folded Corner -->
+    <path d="M 306 128 L 356 178 L 314 178 C 309.6 178 306 174.4 306 170 Z" fill="#e2e8f0"/>
+
+    <!-- Document Content Lines -->
+    <rect x="170" y="196" width="110" height="12" rx="4" fill="#1e3a8a"/>
+    <rect x="170" y="226" width="160" height="10" rx="3" fill="#cbd5e1"/>
+    <rect x="170" y="252" width="160" height="10" rx="3" fill="#cbd5e1"/>
+    <rect x="170" y="278" width="130" height="10" rx="3" fill="#cbd5e1"/>
+    <rect x="170" y="304" width="110" height="10" rx="3" fill="#cbd5e1"/>
+
+    <!-- Gold Notary Seal / Stamp Badge -->
+    <circle cx="316" cy="350" r="32" fill="url(#goldGrad)"/>
+    <circle cx="316" cy="350" r="24" fill="none" stroke="#fef3c7" stroke-width="2.5" stroke-dasharray="4,2"/>
+    <path d="M 316 338 L 320 346 L 328 348 L 322 354 L 324 362 L 316 357 L 308 362 L 310 354 L 304 348 L 312 346 Z" fill="#ffffff"/>
+  </g>
+</svg>

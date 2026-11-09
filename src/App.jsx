@@ -11,6 +11,7 @@ import StampDutyCalculatorModal from './components/StampDutyCalculatorModal';
 import AuthPage from './components/AuthPage';
 import AdminPortal from './components/AdminPortal';
 import OpenWriter from './components/OpenWriter';
+import PWAInstallBanner from './components/PWAInstallBanner';
 import { initialTemplates } from './data/initialTemplates';
 import { 
   loadSavedTemplates, 
@@ -30,7 +31,8 @@ export default function App() {
     loading: authLoading, 
     isAuthModalOpen, 
     authModalConfig, 
-    closeAuthModal 
+    closeAuthModal,
+    openAuthModal
   } = useAuth();
 
   const [activeTab, setActiveTab] = useState('studio');
@@ -54,12 +56,20 @@ export default function App() {
     if (currentUser?.uid) {
       const userTemplates = loadSavedTemplates(initialTemplates, currentUser.uid);
       setTemplates(userTemplates);
-      setCurrentTemplate(userTemplates[0] || initialTemplates[0]);
+      setCurrentTemplate(prev => {
+        if (!prev) return userTemplates[0] || initialTemplates[0];
+        const match = userTemplates.find(t => t.id === prev.id);
+        return match ? { ...match, defaultValues: prev.defaultValues || match.defaultValues } : (userTemplates[0] || initialTemplates[0]);
+      });
       setRecords(loadSavedRecords(currentUser.uid));
     } else {
       const guestTemplates = loadSavedTemplates(initialTemplates, undefined);
       setTemplates(guestTemplates);
-      setCurrentTemplate(guestTemplates[0] || initialTemplates[0]);
+      setCurrentTemplate(prev => {
+        if (!prev) return guestTemplates[0] || initialTemplates[0];
+        const match = guestTemplates.find(t => t.id === prev.id);
+        return match || guestTemplates[0] || initialTemplates[0];
+      });
       setRecords(loadSavedRecords(undefined));
     }
   }, [currentUser?.uid]);
@@ -329,6 +339,9 @@ export default function App() {
         initialMode={authModalConfig?.mode || 'login'}
         actionMessage={authModalConfig?.message || ''}
       />
+
+      {/* PWA Floating Install Banner & Offline Indicator */}
+      <PWAInstallBanner />
     </>
   );
 }

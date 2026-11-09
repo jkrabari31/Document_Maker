@@ -14,9 +14,11 @@ import {
   Edit3,
   Menu,
   X,
-  LogIn
+  LogIn,
+  Smartphone
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { usePWA } from '../contexts/PWAContext';
 import UserProfileMenu from './UserProfileMenu';
 
 export default function Navbar({ 
@@ -32,9 +34,11 @@ export default function Navbar({
   onOpenAdmin
 }) {
   const { currentUser, openAuthModal } = useAuth();
+  const { isInstallable, isInstalled, installApp } = usePWA();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleTabClick = (tab) => {
+    try { navigator?.vibrate?.(8); } catch (_) {}
     setActiveTab(tab);
     setMobileMenuOpen(false);
   };
@@ -139,6 +143,19 @@ export default function Navbar({
               <Download size={14} />
               <span>બેકઅપ</span>
             </button>
+
+            {/* Desktop PWA Install Button */}
+            {!isInstalled && isInstallable && (
+              <button
+                type="button"
+                className="tool-toggle-btn pwa-nav-install-btn"
+                onClick={installApp}
+                title="Dastavej Pro ઍપ કમ્પ્યુટરમાં ઇન્સ્ટોલ કરો"
+              >
+                <Download size={14} style={{ color: '#059669' }} />
+                <span>ઍપ ઇન્સ્ટોલ</span>
+              </button>
+            )}
 
             {/* Admin Portal Button */}
             {isAdmin && (
@@ -287,6 +304,18 @@ export default function Navbar({
                 <span>બેકઅપ ડાઉનલોડ કરો</span>
               </button>
 
+              {!isInstalled && (
+                <button 
+                  type="button" 
+                  className="mobile-drawer-item pwa-drawer-install-btn"
+                  onClick={() => { installApp(); setMobileMenuOpen(false); }}
+                  style={{ background: 'linear-gradient(135deg, #ecfdf5, #d1fae5)', color: '#047857', fontWeight: 700 }}
+                >
+                  <Smartphone size={18} />
+                  <span>ઍપ ઇન્સ્ટોલ કરો (Install App)</span>
+                </button>
+              )}
+
               {isAdmin && (
                 <button 
                   className="mobile-drawer-item"
@@ -307,7 +336,7 @@ export default function Navbar({
         <button 
           type="button" 
           className={`mobile-bottom-item ${activeTab === 'studio' ? 'active' : ''}`}
-          onClick={() => setActiveTab('studio')}
+          onClick={() => handleTabClick('studio')}
         >
           <Sparkles size={18} />
           <span>સ્ટુડિયો</span>
@@ -316,7 +345,7 @@ export default function Navbar({
         <button 
           type="button" 
           className={`mobile-bottom-item ${activeTab === 'writer' ? 'active' : ''}`}
-          onClick={() => setActiveTab('writer')}
+          onClick={() => handleTabClick('writer')}
         >
           <Edit3 size={18} />
           <span>રાઇટર</span>
@@ -325,7 +354,7 @@ export default function Navbar({
         <button 
           type="button" 
           className={`mobile-bottom-item ${activeTab === 'templates' ? 'active' : ''}`}
-          onClick={() => setActiveTab('templates')}
+          onClick={() => handleTabClick('templates')}
         >
           <FolderOpen size={18} />
           <span>ફોર્મેટ</span>
@@ -334,7 +363,7 @@ export default function Navbar({
         <button 
           type="button" 
           className={`mobile-bottom-item ${activeTab === 'records' ? 'active' : ''}`}
-          onClick={() => setActiveTab('records')}
+          onClick={() => handleTabClick('records')}
         >
           <History size={18} />
           <span>હિસ્ટ્રી</span>
@@ -343,7 +372,7 @@ export default function Navbar({
         <button 
           type="button" 
           className="mobile-bottom-item"
-          onClick={onOpenSettings}
+          onClick={() => { try { navigator?.vibrate?.(8); } catch (_) {} onOpenSettings(); }}
         >
           <UserCheck size={18} />
           <span>પ્રોફાઇલ</span>

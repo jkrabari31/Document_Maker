@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { usePricing } from '../contexts/PricingContext';
+import { DEFAULT_PRICING } from '../utils/pricingConfig';
 import {
   collection, getDocs, doc, setDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, Timestamp
 } from 'firebase/firestore';
@@ -7,7 +9,7 @@ import { db, isFirebaseConfigured } from '../firebase/config';
 import {
   Shield, Users, Crown, Search, Plus, Edit3, Trash2, RefreshCw, CheckCircle,
   XCircle, Clock, Mail, Calendar, ArrowLeft, AlertTriangle, UserCheck, UserX,
-  Activity, TrendingUp, Filter, Download
+  Activity, TrendingUp, Filter, Download, IndianRupee, Settings, Tag, Save, Percent
 } from 'lucide-react';
 
 // Admin emails that can access the portal
@@ -15,6 +17,7 @@ const ADMIN_EMAILS = ['jaimin3460@gmail.com', 'admin@dastavej.com'];
 
 export default function AdminPortal({ onBack }) {
   const { currentUser } = useAuth();
+  const { pricing, updatePricing } = usePricing();
   const [licenses, setLicenses] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,6 +26,7 @@ export default function AdminPortal({ onBack }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingLicense, setEditingLicense] = useState(null);
   const [stats, setStats] = useState({ total: 0, active: 0, expired: 0, revenue: 0 });
+  const [activeSection, setActiveSection] = useState('licenses'); // 'licenses' | 'pricing'
 
   // Check if current user is admin
   const isAdmin = currentUser?.email && ADMIN_EMAILS.includes(currentUser.email.toLowerCase());
@@ -191,6 +195,22 @@ export default function AdminPortal({ onBack }) {
         </div>
       </div>
 
+      {/* Section Tabs */}
+      <div className="admin-section-tabs">
+        <button
+          className={`admin-section-tab ${activeSection === 'licenses' ? 'active' : ''}`}
+          onClick={() => setActiveSection('licenses')}
+        >
+          <Crown size={16} /> લાયસન્સ મેનેજમેન્ટ
+        </button>
+        <button
+          className={`admin-section-tab ${activeSection === 'pricing' ? 'active' : ''}`}
+          onClick={() => setActiveSection('pricing')}
+        >
+          <IndianRupee size={16} /> પ્લાન અને પ્રાઇસિંગ
+        </button>
+      </div>
+
       {/* Stats dashboard */}
       <div className="admin-stats">
         <div className="admin-stat-card">
@@ -223,174 +243,185 @@ export default function AdminPortal({ onBack }) {
         </div>
       </div>
 
-      {/* Search & Filter */}
-      <div className="admin-controls">
-        <div className="admin-search">
-          <Search size={16} />
-          <input
-            type="text"
-            placeholder="ઇમેઇલ અથવા નામ શોધો..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <div className="admin-filters">
-          <button
-            className={`admin-filter-btn ${filterStatus === 'all' ? 'active' : ''}`}
-            onClick={() => setFilterStatus('all')}
-          >
-            <Activity size={14} /> બધા
-          </button>
-          <button
-            className={`admin-filter-btn ${filterStatus === 'active' ? 'active' : ''}`}
-            onClick={() => setFilterStatus('active')}
-          >
-            <CheckCircle size={14} /> એક્ટિવ
-          </button>
-          <button
-            className={`admin-filter-btn ${filterStatus === 'expired' ? 'active' : ''}`}
-            onClick={() => setFilterStatus('expired')}
-          >
-            <XCircle size={14} /> એક્સપાયર્ડ
-          </button>
-        </div>
-      </div>
-
-      {/* License Table */}
-      <div className="admin-table-wrap">
-        {loading ? (
-          <div className="admin-loading">
-            <RefreshCw size={32} className="spin" />
-            <p>લોડ થઈ રહ્યું છે...</p>
+      {/* ─── LICENSES SECTION ─────────────────────────────────────── */}
+      {activeSection === 'licenses' && (
+        <>
+          {/* Search & Filter */}
+          <div className="admin-controls">
+            <div className="admin-search">
+              <Search size={16} />
+              <input
+                type="text"
+                placeholder="ઇમેઇલ અથવા નામ શોધો..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="admin-filters">
+              <button
+                className={`admin-filter-btn ${filterStatus === 'all' ? 'active' : ''}`}
+                onClick={() => setFilterStatus('all')}
+              >
+                <Activity size={14} /> બધા
+              </button>
+              <button
+                className={`admin-filter-btn ${filterStatus === 'active' ? 'active' : ''}`}
+                onClick={() => setFilterStatus('active')}
+              >
+                <CheckCircle size={14} /> એક્ટિવ
+              </button>
+              <button
+                className={`admin-filter-btn ${filterStatus === 'expired' ? 'active' : ''}`}
+                onClick={() => setFilterStatus('expired')}
+              >
+                <XCircle size={14} /> એક્સપાયર્ડ
+              </button>
+            </div>
           </div>
-        ) : filteredLicenses.length === 0 ? (
-          <div className="admin-empty">
-            <Crown size={48} />
-            <p>{searchTerm ? 'કોઈ પરિણામ મળ્યું નથી' : 'હજુ કોઈ લાયસન્સ નથી'}</p>
-          </div>
-        ) : (
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>યુઝર</th>
-                <th>પ્લાન</th>
-                <th>સ્ટેટસ</th>
-                <th>શરૂ</th>
-                <th>સમાપ્ત</th>
-                <th>બાકી દિવસો</th>
-                <th>રકમ</th>
-                <th>ક્રિયાઓ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredLicenses.map(lic => (
-                <tr key={lic.id} className={lic.isActive ? '' : 'row-expired'}>
-                  <td>
-                    <div className="admin-user-cell">
-                      <div className="admin-user-avatar">
-                        {(lic.userName || lic.email)?.[0]?.toUpperCase() || '?'}
-                      </div>
-                      <div>
-                        <div className="admin-user-name">{lic.userName || '—'}</div>
-                        <div className="admin-user-email">{lic.email}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`admin-plan-tag plan-${lic.plan || 'monthly'}`}>
-                      {lic.plan === 'yearly' ? '૧ વર્ષ' : lic.plan === 'six_months' ? '૬ મહિના' : '૧ મહિનો'}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`admin-status-tag ${lic.isActive ? 'status-active' : 'status-expired'}`}>
-                      {lic.isActive ? (
-                        <><CheckCircle size={12} /> એક્ટિવ</>
-                      ) : (
-                        <><XCircle size={12} /> એક્સપાયર્ડ</>
-                      )}
-                    </span>
-                  </td>
-                  <td className="admin-date-cell">
-                    {lic.startedAt?.toDate?.()?.toLocaleDateString('gu-IN') ||
-                     (lic.startedAt ? new Date(lic.startedAt).toLocaleDateString('gu-IN') : '—')}
-                  </td>
-                  <td className="admin-date-cell">
-                    {lic.expiresAt?.toLocaleDateString?.('gu-IN') || '—'}
-                  </td>
-                  <td>
-                    {lic.isActive ? (
-                      <span className={`admin-days ${lic.daysRemaining <= 7 ? 'days-warning' : ''}`}>
-                        <Clock size={12} /> {lic.daysRemaining} દિવસ
-                      </span>
-                    ) : (
-                      <span className="admin-days days-expired">સમાપ્ત</span>
-                    )}
-                  </td>
-                  <td className="admin-amount">₹{(lic.amountPaid || 0).toLocaleString()}</td>
-                  <td>
-                    <div className="admin-actions">
-                      <button
-                        className="admin-action-btn admin-action-edit"
-                        title="એડિટ / રિન્યુ"
-                        onClick={() => { setEditingLicense(lic); setShowAddModal(true); }}
-                      >
-                        <Edit3 size={14} />
-                      </button>
-                      <button
-                        className="admin-action-btn admin-action-delete"
-                        title="ડિલીટ"
-                        onClick={() => handleDeleteLicense(lic.email)}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
 
-      {/* Registered Users (without license) */}
-      <div className="admin-section">
-        <h3><Users size={18} /> રજિસ્ટર્ડ યુઝર્સ (લાયસન્સ વગર)</h3>
-        <div className="admin-users-grid">
-          {users
-            .filter(u => !licenses.some(l => l.email === u.email))
-            .map(u => (
-              <div key={u.id} className="admin-user-card">
-                <div className="admin-user-avatar-lg">
-                  {(u.displayName || u.email)?.[0]?.toUpperCase() || '?'}
-                </div>
-                <div className="admin-user-details">
-                  <div className="admin-user-name">{u.displayName || 'Unknown'}</div>
-                  <div className="admin-user-email">{u.email}</div>
-                  <div className="admin-user-joined">
-                    <Calendar size={12} /> {u.createdAt?.toDate?.()?.toLocaleDateString('gu-IN') || '—'}
-                  </div>
-                </div>
-                <button
-                  className="admin-btn admin-btn-activate"
-                  onClick={() => {
-                    setEditingLicense({ email: u.email, userName: u.displayName });
-                    setShowAddModal(true);
-                  }}
-                >
-                  <Crown size={14} /> એક્ટિવેટ
-                </button>
+          {/* License Table */}
+          <div className="admin-table-wrap">
+            {loading ? (
+              <div className="admin-loading">
+                <RefreshCw size={32} className="spin" />
+                <p>લોડ થઈ રહ્યું છે...</p>
               </div>
-            ))}
-          {users.filter(u => !licenses.some(l => l.email === u.email)).length === 0 && (
-            <p className="admin-no-data">બધા યુઝર્સ પાસે લાયસન્સ છે અથવા કોઈ નવો યુઝર નથી.</p>
-          )}
-        </div>
-      </div>
+            ) : filteredLicenses.length === 0 ? (
+              <div className="admin-empty">
+                <Crown size={48} />
+                <p>{searchTerm ? 'કોઈ પરિણામ મળ્યું નથી' : 'હજુ કોઈ લાયસન્સ નથી'}</p>
+              </div>
+            ) : (
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>યુઝર</th>
+                    <th>પ્લાન</th>
+                    <th>સ્ટેટસ</th>
+                    <th>શરૂ</th>
+                    <th>સમાપ્ત</th>
+                    <th>બાકી દિવસો</th>
+                    <th>રકમ</th>
+                    <th>ક્રિયાઓ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredLicenses.map(lic => (
+                    <tr key={lic.id} className={lic.isActive ? '' : 'row-expired'}>
+                      <td>
+                        <div className="admin-user-cell">
+                          <div className="admin-user-avatar">
+                            {(lic.userName || lic.email)?.[0]?.toUpperCase() || '?'}
+                          </div>
+                          <div>
+                            <div className="admin-user-name">{lic.userName || '—'}</div>
+                            <div className="admin-user-email">{lic.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`admin-plan-tag plan-${lic.plan || 'monthly'}`}>
+                          {lic.plan === 'yearly' ? '૧ વર્ષ' : lic.plan === 'six_months' ? '૬ મહિના' : '૧ મહિનો'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`admin-status-tag ${lic.isActive ? 'status-active' : 'status-expired'}`}>
+                          {lic.isActive ? (
+                            <><CheckCircle size={12} /> એક્ટિવ</>
+                          ) : (
+                            <><XCircle size={12} /> એક્સપાયર્ડ</>
+                          )}
+                        </span>
+                      </td>
+                      <td className="admin-date-cell">
+                        {lic.startedAt?.toDate?.()?.toLocaleDateString('gu-IN') ||
+                         (lic.startedAt ? new Date(lic.startedAt).toLocaleDateString('gu-IN') : '—')}
+                      </td>
+                      <td className="admin-date-cell">
+                        {lic.expiresAt?.toLocaleDateString?.('gu-IN') || '—'}
+                      </td>
+                      <td>
+                        {lic.isActive ? (
+                          <span className={`admin-days ${lic.daysRemaining <= 7 ? 'days-warning' : ''}`}>
+                            <Clock size={12} /> {lic.daysRemaining} દિવસ
+                          </span>
+                        ) : (
+                          <span className="admin-days days-expired">સમાપ્ત</span>
+                        )}
+                      </td>
+                      <td className="admin-amount">₹{(lic.amountPaid || 0).toLocaleString()}</td>
+                      <td>
+                        <div className="admin-actions">
+                          <button
+                            className="admin-action-btn admin-action-edit"
+                            title="એડિટ / રિન્યુ"
+                            onClick={() => { setEditingLicense(lic); setShowAddModal(true); }}
+                          >
+                            <Edit3 size={14} />
+                          </button>
+                          <button
+                            className="admin-action-btn admin-action-delete"
+                            title="ડિલીટ"
+                            onClick={() => handleDeleteLicense(lic.email)}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Registered Users (without license) */}
+          <div className="admin-section">
+            <h3><Users size={18} /> રજિસ્ટર્ડ યુઝર્સ (લાયસન્સ વગર)</h3>
+            <div className="admin-users-grid">
+              {users
+                .filter(u => !licenses.some(l => l.email === u.email))
+                .map(u => (
+                  <div key={u.id} className="admin-user-card">
+                    <div className="admin-user-avatar-lg">
+                      {(u.displayName || u.email)?.[0]?.toUpperCase() || '?'}
+                    </div>
+                    <div className="admin-user-details">
+                      <div className="admin-user-name">{u.displayName || 'Unknown'}</div>
+                      <div className="admin-user-email">{u.email}</div>
+                      <div className="admin-user-joined">
+                        <Calendar size={12} /> {u.createdAt?.toDate?.()?.toLocaleDateString('gu-IN') || '—'}
+                      </div>
+                    </div>
+                    <button
+                      className="admin-btn admin-btn-activate"
+                      onClick={() => {
+                        setEditingLicense({ email: u.email, userName: u.displayName });
+                        setShowAddModal(true);
+                      }}
+                    >
+                      <Crown size={14} /> એક્ટિવેટ
+                    </button>
+                  </div>
+                ))}
+              {users.filter(u => !licenses.some(l => l.email === u.email)).length === 0 && (
+                <p className="admin-no-data">બધા યુઝર્સ પાસે લાયસન્સ છે અથવા કોઈ નવો યુઝર નથી.</p>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ─── PRICING SECTION ───────────────────────────────────────── */}
+      {activeSection === 'pricing' && (
+        <PricingManagerSection pricing={pricing} updatePricing={updatePricing} />
+      )}
 
       {/* Add/Edit License Modal */}
       {showAddModal && (
         <LicenseFormModal
           license={editingLicense}
+          pricing={pricing}
           onClose={() => { setShowAddModal(false); setEditingLicense(null); }}
           onSaved={() => { setShowAddModal(false); setEditingLicense(null); fetchLicenses(); }}
         />
@@ -401,13 +432,20 @@ export default function AdminPortal({ onBack }) {
 
 
 // ─── License Form Modal ──────────────────────────────────────
-function LicenseFormModal({ license, onClose, onSaved }) {
+function LicenseFormModal({ license, pricing, onClose, onSaved }) {
   const isEdit = !!license?.id;
+  const plans = pricing?.plans || DEFAULT_PRICING.plans;
+  const getPriceForPlan = (planId) => {
+    const found = plans.find(p => p.id === planId);
+    return found ? found.price : (planId === 'yearly' ? 1599 : planId === 'six_months' ? 999 : 199);
+  };
+
+  const initialPlan = license?.plan || 'monthly';
   const [form, setForm] = useState({
     email: license?.email || '',
     userName: license?.userName || '',
-    plan: license?.plan || 'monthly',
-    amountPaid: license?.amountPaid || 499,
+    plan: initialPlan,
+    amountPaid: license?.amountPaid !== undefined ? license.amountPaid : getPriceForPlan(initialPlan),
     notes: license?.notes || '',
     status: 'active'
   });
@@ -506,15 +544,15 @@ function LicenseFormModal({ license, onClose, onSaved }) {
             <div className="admin-form-group">
               <label><Crown size={14} /> પ્લાન</label>
               <select value={form.plan} onChange={e => {
-                const plan = e.target.value;
-                let amount = 499;
-                if (plan === 'six_months') amount = 2499;
-                else if (plan === 'yearly') amount = 4999;
-                setForm(f => ({ ...f, plan, amountPaid: amount }));
+                const selectedPlan = e.target.value;
+                const price = getPriceForPlan(selectedPlan);
+                setForm(f => ({ ...f, plan: selectedPlan, amountPaid: price }));
               }}>
-                <option value="monthly">1 મહિનો (₹499)</option>
-                <option value="six_months">6 મહિના (₹2,499)</option>
-                <option value="yearly">1 વર્ષ (₹4,999)</option>
+                {plans.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} (₹{p.price})
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -555,6 +593,239 @@ function LicenseFormModal({ license, onClose, onSaved }) {
             {saving ? <RefreshCw size={16} className="spin" /> : <CheckCircle size={16} />}
             {isEdit ? 'રિન્યુ / અપડેટ' : 'એક્ટિવેટ કરો'}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Pricing Manager Section ──────────────────────────────────
+function PricingManagerSection({ pricing, updatePricing }) {
+  const [plans, setPlans] = useState(() => (pricing?.plans ? JSON.parse(JSON.stringify(pricing.plans)) : DEFAULT_PRICING.plans));
+  const [upiId, setUpiId] = useState(pricing?.upiId || DEFAULT_PRICING.upiId);
+  const [whatsappNumber, setWhatsappNumber] = useState(pricing?.whatsappNumber || DEFAULT_PRICING.whatsappNumber);
+  const [offerBanner, setOfferBanner] = useState(pricing?.offerBanner || '');
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [error, setError] = useState('');
+
+  // Synchronize when pricing prop changes
+  useEffect(() => {
+    if (pricing?.plans) setPlans(JSON.parse(JSON.stringify(pricing.plans)));
+    if (pricing?.upiId) setUpiId(pricing.upiId);
+    if (pricing?.whatsappNumber) setWhatsappNumber(pricing.whatsappNumber);
+    if (pricing?.offerBanner !== undefined) setOfferBanner(pricing.offerBanner);
+  }, [pricing]);
+
+  const handlePlanChange = (index, field, value) => {
+    setPlans(prev => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        [field]: field === 'price' || field === 'days' ? Number(value) || 0 : value
+      };
+      return updated;
+    });
+  };
+
+  const handleResetDefaults = () => {
+    if (window.confirm('શું તમે ખરેખર ડિફોલ્ટ કિંમતો રીસેટ કરવા માંગો છો?')) {
+      setPlans(JSON.parse(JSON.stringify(DEFAULT_PRICING.plans)));
+      setUpiId(DEFAULT_PRICING.upiId);
+      setWhatsappNumber(DEFAULT_PRICING.whatsappNumber);
+      setOfferBanner(DEFAULT_PRICING.offerBanner);
+    }
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    setSaveSuccess(false);
+
+    try {
+      const updatedConfig = {
+        plans,
+        upiId: upiId.trim(),
+        whatsappNumber: whatsappNumber.trim(),
+        offerBanner: offerBanner.trim(),
+        updatedAt: new Date().toISOString()
+      };
+
+      await updatePricing(updatedConfig);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 4000);
+    } catch (err) {
+      console.error('Error saving pricing:', err);
+      setError('સેવ કરવામાં ભૂલ: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="admin-pricing-manager">
+      <div className="admin-pricing-header">
+        <div>
+          <h2><IndianRupee size={22} /> પ્લાન અને કિંમત સેટિંગ્સ</h2>
+          <p>અહીંથી તમે તમામ પ્રીમિયમ પ્લાનની કિંમતો, ઑફર્સ, UPI ID અને WhatsApp નંબર ડાયનેમિકલી બદલી શકો છો.</p>
+        </div>
+        <div className="admin-pricing-header-actions">
+          <button type="button" onClick={handleResetDefaults} className="admin-btn admin-btn-secondary">
+            ડિફોલ્ટ રીસેટ
+          </button>
+          <button type="button" onClick={handleSave} className="admin-btn admin-btn-primary" disabled={saving}>
+            {saving ? <RefreshCw size={16} className="spin" /> : <Save size={16} />}
+            {saving ? 'સેવિંગ...' : 'કિંમતો સાચવો'}
+          </button>
+        </div>
+      </div>
+
+      {saveSuccess && (
+        <div className="admin-alert-success">
+          <CheckCircle size={18} /> પ્લાન કિંમતો અને સેટિંગ્સ સફળતાપૂર્વક સાચવવામાં આવ્યા! યુઝર્સને હવે નવી કિંમતો જ દેખાશે.
+        </div>
+      )}
+
+      {error && (
+        <div className="auth-error">
+          <AlertTriangle size={16} /> {error}
+        </div>
+      )}
+
+      {/* Plan Cards Configuration */}
+      <div className="admin-pricing-grid">
+        {plans.map((plan, idx) => (
+          <div key={plan.id} className="admin-plan-card">
+            <div className="admin-plan-card-header">
+              <span className="admin-plan-badge-preview">
+                <Tag size={14} /> {plan.name} ({plan.days} દિવસ)
+              </span>
+              <span className="admin-plan-id">ID: {plan.id}</span>
+            </div>
+
+            <div className="admin-plan-card-body">
+              <div className="admin-form-group">
+                <label>પ્લાનનું નામ</label>
+                <input
+                  type="text"
+                  value={plan.name}
+                  onChange={e => handlePlanChange(idx, 'name', e.target.value)}
+                  placeholder="૧ મહિનો"
+                />
+              </div>
+
+              <div className="admin-form-row">
+                <div className="admin-form-group">
+                  <label>કિંમત (₹)</label>
+                  <div className="admin-input-with-icon">
+                    <IndianRupee size={15} />
+                    <input
+                      type="number"
+                      value={plan.price}
+                      onChange={e => handlePlanChange(idx, 'price', e.target.value)}
+                      placeholder="199"
+                      min="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="admin-form-group">
+                  <label>દિવસો (Duration)</label>
+                  <input
+                    type="number"
+                    value={plan.days}
+                    onChange={e => handlePlanChange(idx, 'days', e.target.value)}
+                    placeholder="30"
+                    min="1"
+                  />
+                </div>
+              </div>
+
+              <div className="admin-form-row">
+                <div className="admin-form-group">
+                  <label>બેજ ટેક્સ્ટ (Badge)</label>
+                  <input
+                    type="text"
+                    value={plan.badge || ''}
+                    onChange={e => handlePlanChange(idx, 'badge', e.target.value)}
+                    placeholder="દા.ત. લોકપ્રિય / શ્રેષ્ઠ બચત"
+                  />
+                </div>
+
+                <div className="admin-form-group">
+                  <label>બચત મેસેજ (Savings)</label>
+                  <input
+                    type="text"
+                    value={plan.savings || ''}
+                    onChange={e => handlePlanChange(idx, 'savings', e.target.value)}
+                    placeholder="દા.ત. ₹૨૦૧ બચાવો"
+                  />
+                </div>
+              </div>
+
+              <div className="admin-form-group">
+                <label>સફિક્સ ટેક્સ્ટ (Suffix)</label>
+                <input
+                  type="text"
+                  value={plan.suffix || ''}
+                  onChange={e => handlePlanChange(idx, 'suffix', e.target.value)}
+                  placeholder="દા.ત. /મો અથવા /વર્ષ"
+                />
+              </div>
+
+              <div className="admin-plan-preview-box">
+                <div className="admin-plan-preview-label">મોડલમાં આવું દેખાશે:</div>
+                <div className="admin-plan-preview-content">
+                  <span className="admin-preview-title">{plan.name}</span>
+                  <span className="admin-preview-price">₹{plan.price}<span>{plan.suffix || ''}</span></span>
+                  {plan.badge && <span className="admin-preview-badge">{plan.badge}</span>}
+                  {plan.savings && <span className="admin-preview-savings">{plan.savings}</span>}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Payment Details Configuration */}
+      <div className="admin-section admin-payment-config-section">
+        <h3><Settings size={18} /> UPI અને સંપર્ક વિગતો</h3>
+        <p className="admin-section-sub">આ વિગતો પેમેન્ટ સ્કેન અને વોટ્સએપ બટનમાં સીધી ઉપયોગ થશે.</p>
+
+        <div className="admin-payment-config-grid">
+          <div className="admin-form-group">
+            <label>Google Pay / PhonePe UPI ID</label>
+            <input
+              type="text"
+              value={upiId}
+              onChange={e => setUpiId(e.target.value)}
+              placeholder="example@okhdfcbank"
+            />
+            <small>યુઝર્સ આ UPI ID પર પેમેન્ટ કરી શકશે</small>
+          </div>
+
+          <div className="admin-form-group">
+            <label>WhatsApp નંબર (સ્ક્રીનશોટ મેળવવા માટે)</label>
+            <input
+              type="text"
+              value={whatsappNumber}
+              onChange={e => setWhatsappNumber(e.target.value)}
+              placeholder="9574782643"
+            />
+            <small>દેશ કોડ (+91) વગર 10 આંકડાનો નંબર દાખલ કરો</small>
+          </div>
+
+          <div className="admin-form-group" style={{ gridColumn: '1 / -1' }}>
+            <label><Percent size={14} /> સ્પેશિયલ ઑફર બેનર (ઓપ્શનલ)</label>
+            <input
+              type="text"
+              value={offerBanner}
+              onChange={e => setOfferBanner(e.target.value)}
+              placeholder="દા.ત. 💥 દિવાળી સ્પેશિયલ ઑફર: વાર્ષિક પ્લાન પર વધારાની ૨૦% છૂટ!"
+            />
+            <small>જો આ ભરેલું હશે તો પ્રીમિયમ મોડલની ટોચ પર રંગીન બેનર દેખાશે. ખાલી રાખવાથી બેનર છૂપાઈ જશે.</small>
+          </div>
         </div>
       </div>
     </div>

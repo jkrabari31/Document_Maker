@@ -1,24 +1,37 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { usePricing } from '../contexts/PricingContext';
+import { DEFAULT_PRICING } from '../utils/pricingConfig';
 import { Crown, Lock, X, Clock, CreditCard, Phone, Mail, CheckCircle, AlertTriangle, Copy, Check } from 'lucide-react';
 
 export default function SubscriptionGuard({ children, action = 'આ ફીચર' }) {
   const { isPremium, license, currentUser, openAuthModal } = useAuth();
+  // Gracefully fall back if PricingContext is not yet mounted
+  let pricingCtx;
+  try { pricingCtx = usePricing(); } catch (_) { pricingCtx = { pricing: DEFAULT_PRICING }; }
+  const { pricing } = pricingCtx;
+
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // ─── Plans from dynamic pricing ───────────────────────────────────────────
+  const plans = pricing?.plans || DEFAULT_PRICING.plans;
+  const upiId = pricing?.upiId || DEFAULT_PRICING.upiId;
+  const whatsappNumber = pricing?.whatsappNumber || DEFAULT_PRICING.whatsappNumber;
+  const offerBanner = pricing?.offerBanner || '';
 
   // If user has premium, render children directly
   if (isPremium()) {
     return <>{children}</>;
   }
 
-  // Otherwise wrap the children's onClick with our guard
+  // Otherwise wrap the child's onClick with our guard
   const handleBlockedAction = (e) => {
     e?.preventDefault?.();
     e?.stopPropagation?.();
 
-    // 1. If not logged in / not registered: compulsory login/register modal
+    // 1. If not logged in: compulsory login/register modal
     if (!currentUser) {
       if (openAuthModal) {
         openAuthModal({
@@ -29,9 +42,14 @@ export default function SubscriptionGuard({ children, action = 'આ ફીચર
       return;
     }
 
-    // 2. If logged in but not premium: show subscription upgrade modal
+    // 2. Logged in but not premium: show subscription modal
     setShowModal(true);
   };
+
+  // Helper: build payment step text from plans
+  const planStepsText = plans
+    .map(p => `₹${p.price} (${p.name})`)
+    .join(', ');
 
   const modalContent = showModal && (
     <div className="sub-modal-overlay" onClick={() => setShowModal(false)}>
@@ -39,6 +57,13 @@ export default function SubscriptionGuard({ children, action = 'આ ફીચર
         <button className="sub-modal-close" onClick={() => setShowModal(false)} title="બંધ કરો">
           <X size={22} />
         </button>
+
+        {/* Optional offer banner */}
+        {offerBanner && (
+          <div className="sub-offer-banner">
+            🎉 {offerBanner}
+          </div>
+        )}
 
         <div className="sub-modal-header">
           <div className="sub-modal-icon">
@@ -51,36 +76,50 @@ export default function SubscriptionGuard({ children, action = 'આ ફીચર
           </p>
         </div>
 
-        {/* License status */}
+        {/* License status (expired) */}
         {license && !license.isActive && (
           <div className="sub-expired-notice">
             <AlertTriangle size={16} />
-            <span>તમારું સબ્સ્ક્રિપ્શન <strong>{license.expiresAt?.toLocaleDateString?.('gu-IN') || 'expired'}</strong> ના રોજ સમાપ્ત થયું. રિન્યુઅલ માટે સંપર્ક કરો.</span>
+            <span>
+              તમારું સબ્સ્ક્રિપ્શન <strong>
+                {license.expiresAt?.toLocaleDateString?.('gu-IN') || 'expired'}
+              </strong> ના રોજ સમાપ્ત થયું. રિન્યુઅલ માટે સંપર્ક કરો.
+            </span>
           </div>
         )}
 
-        {/* 3 Price Catalog */}
+        {/* ─── Dynamic Plan Cards ─────────────────────────────────────────── */}
         <div className="sub-pricing-row">
-          <div className="sub-plan">
-            <div className="sub-plan-name">૧ મહિનો</div>
-            <div className="sub-plan-price">₹199<span>/મો</span></div>
-            <div className="sub-plan-features-tag">સ્ટાર્ટર પ્લાન</div>
-          </div>
-          <div className="sub-plan sub-plan-popular">
-            <div className="sub-plan-badge">લોકપ્રિય</div>
-            <div className="sub-plan-name">૬ મહિના</div>
-            <div className="sub-plan-price">₹999<span>/૬ મો</span></div>
-            <div className="sub-plan-savings">₹201 બચાવો</div>
-          </div>
-          <div className="sub-plan sub-plan-best">
-            <div className="sub-plan-badge sub-plan-badge-gold">શ્રેષ્ઠ બચત</div>
-            <div className="sub-plan-name">૧ વર્ષ</div>
-            <div className="sub-plan-price">₹1599<span>/વર્ષ</span></div>
-            <div className="sub-plan-savings">₹800 બચાવો</div>
-          </div>
+          {plans.map((plan, idx) => {
+            const isPopular = plan.popular || plan.badge === 'લોકપ્રિય';
+            const isBest = plan.badge === 'શ્રેષ્ઠ બચત' || plan.id === 'yearly';
+            return (
+              <div
+                key={plan.id}
+                className={`sub-plan${isPopular ? ' sub-plan-popular' : ''}${isBest && !isPopular ? ' sub-plan-best' : ''}`}
+              >
+                {plan.badge && (
+                  <div className={`sub-plan-badge${isBest && !isPopular ? ' sub-plan-badge-gold' : ''}`}>
+                    {plan.badge}
+                  </div>
+                )}
+                <div className="sub-plan-name">{plan.name}</div>
+                <div className="sub-plan-price">
+                  ₹{plan.price}
+                  <span>{plan.suffix || ''}</span>
+                </div>
+                {plan.savings && (
+                  <div className="sub-plan-savings">{plan.savings}</div>
+                )}
+                {!plan.savings && plan.label && (
+                  <div className="sub-plan-features-tag">{plan.label}</div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
-        {/* Features included */}
+        {/* Features list */}
         <div className="sub-features-list">
           <h4>પ્રીમિયમમાં શું મળે?</h4>
           <ul>
@@ -93,9 +132,9 @@ export default function SubscriptionGuard({ children, action = 'આ ફીચર
           </ul>
         </div>
 
-        {/* Payment Section with Google Pay QR Code */}
+        {/* Payment Section — dynamic UPI ID */}
         <div className="sub-payment-section">
-          <h4><CreditCard size={17} /> ચુકવણી પદ્ધતિ (Scan & Pay)</h4>
+          <h4><CreditCard size={17} /> ચુકવણી પદ્ધતિ (Scan &amp; Pay)</h4>
 
           <div className="sub-payment-grid">
             <div className="sub-qr-card">
@@ -105,12 +144,12 @@ export default function SubscriptionGuard({ children, action = 'આ ફીચર
               <div className="sub-upi-details">
                 <span className="sub-upi-label">Google Pay / PhonePe UPI ID:</span>
                 <div className="sub-upi-copy-row">
-                  <code className="sub-upi-id">komaljrabari2212@okhdfcbank</code>
+                  <code className="sub-upi-id">{upiId}</code>
                   <button
                     type="button"
                     className="sub-copy-upi-btn"
                     onClick={() => {
-                      navigator.clipboard?.writeText('komaljrabari2212@okhdfcbank');
+                      navigator.clipboard?.writeText(upiId);
                       setCopied(true);
                       setTimeout(() => setCopied(false), 2000);
                     }}
@@ -127,7 +166,13 @@ export default function SubscriptionGuard({ children, action = 'આ ફીચર
               <div className="sub-step">
                 <div className="sub-step-num">1</div>
                 <div>
-                  QR કોડ સ્કેન કરી પ્લાન મુજબ રકમ ચૂકવો: <strong>₹199 (1 મહિનો)</strong>, <strong>₹999 (6 મહિના)</strong> અથવા <strong>₹1,599 (1 વર્ષ)</strong>
+                  QR કોડ સ્કેન કરી પ્લાન મુજબ રકમ ચૂકવો:{' '}
+                  {plans.map((p, i) => (
+                    <span key={p.id}>
+                      <strong>₹{p.price} ({p.name})</strong>
+                      {i < plans.length - 1 ? ', ' : ''}
+                    </span>
+                  ))}
                 </div>
               </div>
               <div className="sub-step">
@@ -139,7 +184,7 @@ export default function SubscriptionGuard({ children, action = 'આ ફીચર
                       <Mail size={12} /> {currentUser.email}
                     </span>
                   )}
-                  {' '}WhatsApp (<strong>9574782643</strong>) પર મોકલો
+                  {' '}WhatsApp (<strong>{whatsappNumber}</strong>) પર મોકલો
                 </div>
               </div>
               <div className="sub-step">
@@ -157,11 +202,16 @@ export default function SubscriptionGuard({ children, action = 'આ ફીચર
             className="sub-contact-btn"
             onClick={() => {
               const emailMsg = currentUser?.email ? ` for account: ${currentUser.email}` : '';
-              window.open(`https://wa.me/919574782643?text=${encodeURIComponent(`Hello, I have made the payment for Document Master Premium Subscription${emailMsg}. Please find the screenshot attached.`)}`, '_blank');
+              window.open(
+                `https://wa.me/91${whatsappNumber}?text=${encodeURIComponent(
+                  `Hello, I have made the payment for Document Master Premium Subscription${emailMsg}. Please find the screenshot attached.`
+                )}`,
+                '_blank'
+              );
             }}
           >
             <Phone size={18} />
-            WhatsApp પર પેમેન્ટ સ્ક્રીનશોટ મોકલો (9574782643)
+            WhatsApp પર પેમેન્ટ સ્ક્રીનશોટ મોકલો ({whatsappNumber})
           </button>
           <button className="sub-close-btn" onClick={() => setShowModal(false)}>
             પછી કરીશ
@@ -179,15 +229,15 @@ export default function SubscriptionGuard({ children, action = 'આ ફીચર
           return React.cloneElement(child, {
             onClick: handleBlockedAction,
             className: `${child.props.className || ''} subscription-locked`.trim(),
-            title: !currentUser 
-              ? `🔒 ${action} માટે લૉગિન / રજિસ્ટ્રેશન ફરજિયાત છે` 
+            title: !currentUser
+              ? `🔒 ${action} માટે લૉગિન / રજિસ્ટ્રેશન ફરજિયાત છે`
               : `🔒 ${action} માટે પ્રીમિયમ સબ્સ્ક્રિપ્શન જરૂરી છે`
           });
         }
         return child;
       })}
 
-      {/* Render modal directly in document.body via Portal to prevent any stacking context or header overlap */}
+      {/* Render modal in document.body via Portal */}
       {showModal && typeof document !== 'undefined' && createPortal(modalContent, document.body)}
     </>
   );

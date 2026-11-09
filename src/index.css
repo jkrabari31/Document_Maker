@@ -6019,5 +6019,326 @@ textarea.input-control {
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   ADMIN PRICING MANAGER & DYNAMIC PRICING STYLES
+   ═══════════════════════════════════════════════════════════════ */
+
+.admin-section-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1.25rem 0 1.5rem;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 0.5rem;
+}
+
+.admin-section-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #64748b;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.admin-section-tab:hover {
+  color: #1e40af;
+  background: #eff6ff;
+}
+
+.admin-section-tab.active {
+  color: #1d4ed8;
+  background: #dbeafe;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.12);
+}
+
+.admin-pricing-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.admin-pricing-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  background: #ffffff;
+  padding: 1.25rem 1.5rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+}
+
+.admin-pricing-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.25rem;
+  color: #0f172a;
+  margin: 0 0 0.25rem;
+}
+
+.admin-pricing-header p {
+  color: #64748b;
+  font-size: 0.88rem;
+  margin: 0;
+}
+
+.admin-pricing-header-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.admin-btn-secondary {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-btn-secondary:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.admin-alert-success {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  color: #15803d;
+  padding: 0.85rem 1.15rem;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+.admin-pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.admin-plan-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.admin-plan-card-header {
+  background: #f8fafc;
+  padding: 0.85rem 1.15rem;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-plan-badge-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  color: #1e293b;
+  font-size: 0.92rem;
+}
+
+.admin-plan-id {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-family: monospace;
+  background: #f1f5f9;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+.admin-plan-card-body {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.admin-plan-card-body .admin-form-group {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.admin-plan-card-body .admin-form-group input {
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.admin-plan-card-body .admin-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.admin-plan-card-body .admin-form-row .admin-form-group {
+  min-width: 0;
+  width: 100%;
+}
+
+.admin-plan-card-body .admin-form-row label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.72rem;
+}
+
+.admin-input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.admin-input-with-icon svg {
+  position: absolute;
+  left: 10px;
+  color: #64748b;
+  pointer-events: none;
+}
+
+.admin-input-with-icon input {
+  width: 100%;
+  box-sizing: border-box;
+  padding-left: 2rem !important;
+}
+
+.admin-plan-preview-box {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin-top: 0.35rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.admin-plan-preview-label {
+  font-size: 0.72rem;
+  color: #64748b;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+
+.admin-plan-preview-content {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.admin-preview-title {
+  font-weight: 700;
+  color: #1e293b;
+  font-size: 0.95rem;
+}
+
+.admin-preview-price {
+  font-weight: 800;
+  color: #2563eb;
+  font-size: 1.15rem;
+}
+
+.admin-preview-price span {
+  font-size: 0.78rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.admin-preview-badge {
+  font-size: 0.72rem;
+  background: #dbeafe;
+  color: #1d4ed8;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.admin-preview-savings {
+  font-size: 0.72rem;
+  background: #fef3c7;
+  color: #b45309;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.admin-payment-config-section {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.admin-section-sub {
+  color: #64748b;
+  font-size: 0.85rem;
+  margin: -0.25rem 0 1.25rem;
+}
+
+.admin-payment-config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.25rem;
+}
+
+.admin-payment-config-grid small {
+  display: block;
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 0.25rem;
+}
+
+/* Offer Banner on Subscription Modal */
+.sub-offer-banner {
+  background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+  color: #ffffff;
+  text-align: center;
+  padding: 0.55rem 1rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  box-shadow: 0 3px 8px rgba(234, 88, 12, 0.25);
+  animation: pulseOffer 2s infinite ease-in-out;
+}
+
+@keyframes pulseOffer {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.95; transform: scale(1.01); }
+}
+
 
 

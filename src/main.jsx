@@ -4,6 +4,7 @@ import './index.css';
 import App from './App.jsx';
 import { AuthProvider } from './contexts/AuthContext.jsx';
 import { PWAProvider } from './contexts/PWAContext.jsx';
+import { PricingProvider } from './contexts/PricingContext.jsx';
 
 // Register PWA Service Worker for offline capability & instant caching
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
@@ -22,7 +23,9 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <AuthProvider>
       <PWAProvider>
-        <App />
+        <PricingProvider>
+          <App />
+        </PricingProvider>
       </PWAProvider>
     </AuthProvider>
   </StrictMode>,

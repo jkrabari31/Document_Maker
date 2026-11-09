@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { exportToWord } from '../utils/documentUtils';
 import { handlePhoneticKeyDown, transliterateWord } from '../utils/gujaratiTransliterate';
+import SubscriptionGuard from './SubscriptionGuard';
 
 export default function PedhinamuMaker({ userSettings }) {
   const [isPhoneticActive, setIsPhoneticActive] = useState(true);
@@ -582,15 +583,19 @@ export default function PedhinamuMaker({ userSettings }) {
               <span>{copied ? 'કોપી થયું!' : 'કોપી'}</span>
             </button>
 
-            <button className="btn-secondary" onClick={handleExportWord} title="Microsoft Word ફાઇલમાં ડાઉનલોડ">
-              <Download size={16} />
-              <span>Word (.doc)</span>
-            </button>
+            <SubscriptionGuard action="Word (.doc) ડાઉનલોડ">
+              <button className="btn-secondary" onClick={handleExportWord} title="Microsoft Word ફાઇલમાં ડાઉનલોડ">
+                <Download size={16} />
+                <span>Word (.doc)</span>
+              </button>
+            </SubscriptionGuard>
 
-            <button className="btn-primary" onClick={handlePrint} title="પ્રિન્ટ / PDF કાઢો">
-              <Printer size={16} />
-              <span>પ્રિન્ટ / PDF કાઢો</span>
-            </button>
+            <SubscriptionGuard action="પ્રિન્ટ / PDF કાઢો">
+              <button className="btn-primary" onClick={handlePrint} title="પ્રિન્ટ / PDF કાઢો">
+                <Printer size={16} />
+                <span>પ્રિન્ટ / PDF કાઢો</span>
+              </button>
+            </SubscriptionGuard>
           </div>
         </div>
 

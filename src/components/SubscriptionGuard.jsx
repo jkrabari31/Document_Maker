@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Crown, Lock, X, Clock, CreditCard, Phone, Mail, CheckCircle, AlertTriangle, Copy, Check } from 'lucide-react';
 
 export default function SubscriptionGuard({ children, action = 'આ ફીચર' }) {
-  const { isPremium, license, currentUser } = useAuth();
+  const { isPremium, license, currentUser, openAuthModal } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -17,6 +17,19 @@ export default function SubscriptionGuard({ children, action = 'આ ફીચર
   const handleBlockedAction = (e) => {
     e?.preventDefault?.();
     e?.stopPropagation?.();
+
+    // 1. If not logged in / not registered: compulsory login/register modal
+    if (!currentUser) {
+      if (openAuthModal) {
+        openAuthModal({
+          mode: 'register',
+          message: `દસ્તાવેજ ${action} કરવા માટે કૃપા કરીને પહેલાં રજિસ્ટ્રેશન અથવા લૉગિન કરો.`
+        });
+      }
+      return;
+    }
+
+    // 2. If logged in but not premium: show subscription upgrade modal
     setShowModal(true);
   };
 
@@ -166,7 +179,9 @@ export default function SubscriptionGuard({ children, action = 'આ ફીચર
           return React.cloneElement(child, {
             onClick: handleBlockedAction,
             className: `${child.props.className || ''} subscription-locked`.trim(),
-            title: `🔒 ${action} માટે પ્રીમિયમ સબ્સ્ક્રિપ્શન જરૂરી છે`
+            title: !currentUser 
+              ? `🔒 ${action} માટે લૉગિન / રજિસ્ટ્રેશન ફરજિયાત છે` 
+              : `🔒 ${action} માટે પ્રીમિયમ સબ્સ્ક્રિપ્શન જરૂરી છે`
           });
         }
         return child;

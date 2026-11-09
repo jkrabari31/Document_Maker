@@ -25,7 +25,13 @@ import {
 const ADMIN_EMAILS = ['jaimin3460@gmail.com', 'admin@dastavej.com'];
 
 export default function App() {
-  const { currentUser, loading: authLoading } = useAuth();
+  const { 
+    currentUser, 
+    loading: authLoading, 
+    isAuthModalOpen, 
+    authModalConfig, 
+    closeAuthModal 
+  } = useAuth();
 
   const [activeTab, setActiveTab] = useState('studio');
   const [templates, setTemplates] = useState(() => loadSavedTemplates(initialTemplates, currentUser?.uid));
@@ -43,13 +49,18 @@ export default function App() {
 
   const isAdmin = currentUser?.email && ADMIN_EMAILS.includes(currentUser.email.toLowerCase());
 
-  // Reload templates & records when current user changes (user isolation)
+  // Reload templates & records when current user changes (user isolation or guest mode)
   useEffect(() => {
     if (currentUser?.uid) {
       const userTemplates = loadSavedTemplates(initialTemplates, currentUser.uid);
       setTemplates(userTemplates);
       setCurrentTemplate(userTemplates[0] || initialTemplates[0]);
       setRecords(loadSavedRecords(currentUser.uid));
+    } else {
+      const guestTemplates = loadSavedTemplates(initialTemplates, undefined);
+      setTemplates(guestTemplates);
+      setCurrentTemplate(guestTemplates[0] || initialTemplates[0]);
+      setRecords(loadSavedRecords(undefined));
     }
   }, [currentUser?.uid]);
 
@@ -212,13 +223,12 @@ export default function App() {
     );
   }
 
-  // Show login page if not authenticated
-  if (!currentUser) {
-    return <AuthPage />;
-  }
-
-  // Admin portal view
+  // Admin portal view (only accessible to authenticated admins)
   if (activeTab === 'admin') {
+    if (!currentUser || !isAdmin) {
+      setActiveTab('studio');
+      return null;
+    }
     return (
       <>
         <div className="bg-ambient" />
@@ -309,6 +319,15 @@ export default function App() {
         onClose={() => setIsSettingsOpen(false)}
         settings={userSettings}
         onSettingsSaved={(updated) => setUserSettings(updated)}
+      />
+
+      {/* Global Auth Modal for Guest Users attempting restricted actions */}
+      <AuthPage 
+        isModal={true}
+        isOpen={isAuthModalOpen}
+        onClose={closeAuthModal}
+        initialMode={authModalConfig?.mode || 'login'}
+        actionMessage={authModalConfig?.message || ''}
       />
     </>
   );

@@ -284,7 +284,7 @@ export default function DocumentStudio({
     );
   }
 
-  const { isPremium, currentUser } = useAuth();
+  const { isPremium, currentUser, openAuthModal } = useAuth();
 
   // Check if current template is Pedhinamu
   const isPedhinamu = currentTemplate?.id === 'pedigree-heir-affidavit' ||
@@ -1179,6 +1179,14 @@ export default function DocumentStudio({
   const [showSubModalDirect, setShowSubModalDirect] = useState(false);
 
   const handlePrint = (e) => {
+    if (!currentUser) {
+      e?.preventDefault?.();
+      openAuthModal?.({
+        mode: 'login',
+        message: 'દસ્તાવેજ પ્રિન્ટ કરવા માટે લૉગિન અથવા એકાઉન્ટ બનાવવું ફરજિયાત છે.'
+      });
+      return;
+    }
     if (!isPremium()) {
       e?.preventDefault?.();
       return;
@@ -1187,10 +1195,19 @@ export default function DocumentStudio({
     window.print();
   };
 
-  // Block Ctrl+P for non-premium users
+  // Block Ctrl+P for guests and non-premium users
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+        if (!currentUser) {
+          e.preventDefault();
+          e.stopPropagation();
+          openAuthModal?.({
+            mode: 'login',
+            message: 'દસ્તાવેજ પ્રિન્ટ કરવા માટે લૉગિન અથવા એકાઉન્ટ બનાવવું ફરજિયાત છે.'
+          });
+          return;
+        }
         if (!isPremium()) {
           e.preventDefault();
           e.stopPropagation();
@@ -1206,7 +1223,7 @@ export default function DocumentStudio({
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isPremium]);
+  }, [currentUser, isPremium, openAuthModal]);
 
 
   const handleCopy = () => {
@@ -1218,7 +1235,15 @@ export default function DocumentStudio({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleExportWord = () => {
+  const handleExportWord = (e) => {
+    if (!currentUser) {
+      e?.preventDefault?.();
+      openAuthModal?.({
+        mode: 'register',
+        message: 'દસ્તાવેજ Word ફોર્મેટમાં ડાઉનલોડ કરવા માટે લૉગિન અથવા એકાઉન્ટ બનાવવું ફરજિયાત છે.'
+      });
+      return;
+    }
     handleDirectEditBlur();
     const latestHtml = getLatestDocumentHtml();
     const filename = `${currentTemplate.id}_${new Date().toISOString().slice(0, 10)}`;
@@ -1226,6 +1251,14 @@ export default function DocumentStudio({
   };
 
   const handleDownloadPdf = async (e) => {
+    if (!currentUser) {
+      e?.preventDefault?.();
+      openAuthModal?.({
+        mode: 'register',
+        message: 'દસ્તાવેજ PDF ડાઉનલોડ કરવા માટે લૉગિન અથવા એકાઉન્ટ બનાવવું ફરજિયાત છે.'
+      });
+      return;
+    }
     if (!isPremium()) {
       e?.preventDefault?.();
       return;

@@ -59,7 +59,7 @@ const DEFAULT_WRITER_HTML = `
 `;
 
 export default function OpenWriter({ onBackToStudio, userSettings, onRecordSaved }) {
-  const { isPremium, currentUser } = useAuth();
+  const { isPremium, currentUser, openAuthModal } = useAuth();
   
   // Document state
   const [docTitle, setDocTitle] = useState('કાનૂની દસ્તાવેજ (મુક્ત મુસદ્દો)');
@@ -171,7 +171,7 @@ export default function OpenWriter({ onBackToStudio, userSettings, onRecordSaved
     updateWordCount();
   }, []);
 
-  // Keyboard shortcut Ctrl+G for phonetic typing and Ctrl+Enter for New Page
+  // Keyboard shortcuts: Ctrl+G (phonetic), Ctrl+Enter (new page), Ctrl+P (print)
   useEffect(() => {
     const handleGlobalKeyDown = (e) => {
       if (e.ctrlKey && (e.key === 'g' || e.key === 'G')) {
@@ -182,10 +182,25 @@ export default function OpenWriter({ onBackToStudio, userSettings, onRecordSaved
         e.preventDefault();
         handleAddNewPage();
       }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+        if (!currentUser) {
+          e.preventDefault();
+          openAuthModal?.({
+            mode: 'login',
+            message: 'ઓપન રાઇટર દસ્તાવેજ પ્રિન્ટ કરવા માટે લૉગિન અથવા એકાઉન્ટ બનાવવું ફરજિયાત છે.'
+          });
+          return;
+        }
+        if (!isPremium()) {
+          e.preventDefault();
+          const lockedBtn = document.querySelector('.btn-primary.subscription-locked');
+          if (lockedBtn) lockedBtn.click();
+        }
+      }
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [pageList.length]);
+  }, [pageList.length, currentUser, isPremium, openAuthModal]);
 
   // Cleanup speech on unmount
   useEffect(() => {
@@ -445,6 +460,14 @@ export default function OpenWriter({ onBackToStudio, userSettings, onRecordSaved
 
   // Actions
   const handlePrint = (e) => {
+    if (!currentUser) {
+      e?.preventDefault?.();
+      openAuthModal?.({
+        mode: 'login',
+        message: 'ઓપન રાઇટર દસ્તાવેજ પ્રિન્ટ કરવા માટે લૉગિન અથવા એકાઉન્ટ બનાવવું ફરજિયાત છે.'
+      });
+      return;
+    }
     if (!isPremium()) {
       e?.preventDefault?.();
       return;
@@ -453,6 +476,14 @@ export default function OpenWriter({ onBackToStudio, userSettings, onRecordSaved
   };
 
   const handleDownloadPdf = async (e) => {
+    if (!currentUser) {
+      e?.preventDefault?.();
+      openAuthModal?.({
+        mode: 'register',
+        message: 'ઓપન રાઇટર PDF ડાઉનલોડ કરવા માટે લૉગિન અથવા એકાઉન્ટ બનાવવું ફરજિયાત છે.'
+      });
+      return;
+    }
     if (!isPremium()) {
       e?.preventDefault?.();
       return;
@@ -475,7 +506,15 @@ export default function OpenWriter({ onBackToStudio, userSettings, onRecordSaved
     }
   };
 
-  const handleExportWord = () => {
+  const handleExportWord = (e) => {
+    if (!currentUser) {
+      e?.preventDefault?.();
+      openAuthModal?.({
+        mode: 'register',
+        message: 'ઓપન રાઇટર Word ફાઇલ ડાઉનલોડ કરવા માટે લૉગિન અથવા એકાઉન્ટ બનાવવું ફરજિયાત છે.'
+      });
+      return;
+    }
     const allEditors = document.querySelectorAll('.open-writer-editable');
     const fullHtml = Array.from(allEditors)
       .map(ed => ed.innerHTML)

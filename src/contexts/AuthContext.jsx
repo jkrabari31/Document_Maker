@@ -83,6 +83,32 @@ export function AuthProvider({ children }) {
   const [license, setLicense] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Global Auth Modal state for guest users attempting restricted actions
+  const [authModalConfig, setAuthModalConfig] = useState({
+    isOpen: false,
+    mode: 'login', // 'login' | 'register'
+    message: ''
+  });
+
+  const openAuthModal = (options = {}) => {
+    setAuthModalConfig({
+      isOpen: true,
+      mode: options.mode || 'login',
+      message: options.message || ''
+    });
+  };
+
+  const closeAuthModal = () => {
+    setAuthModalConfig(prev => ({ ...prev, isOpen: false }));
+  };
+
+  // Automatically close auth modal once user successfully signs in
+  useEffect(() => {
+    if (currentUser) {
+      setAuthModalConfig(prev => ({ ...prev, isOpen: false }));
+    }
+  }, [currentUser]);
+
   // Fetch license for user
   async function fetchLicense(userEmail) {
     if (!userEmail) return null;
@@ -282,7 +308,12 @@ export function AuthProvider({ children }) {
         const lic = await fetchLicense(currentUser.email);
         setLicense(lic);
       }
-    }
+    },
+    // Global Auth Modal controls
+    isAuthModalOpen: authModalConfig.isOpen,
+    authModalConfig,
+    openAuthModal,
+    closeAuthModal
   };
 
   return (

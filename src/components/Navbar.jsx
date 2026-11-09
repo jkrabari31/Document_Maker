@@ -13,7 +13,8 @@ import {
   Shield,
   Edit3,
   Menu,
-  X
+  X,
+  LogIn
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import UserProfileMenu from './UserProfileMenu';
@@ -30,7 +31,7 @@ export default function Navbar({
   isAdmin,
   onOpenAdmin
 }) {
-  const { currentUser } = useAuth();
+  const { currentUser, openAuthModal } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleTabClick = (tab) => {
@@ -154,10 +155,22 @@ export default function Navbar({
 
           <div className="header-v-divider desktop-only-divider" />
 
-          {/* User Account Menu */}
-          {currentUser && (
+          {/* User Account Menu or Login Trigger */}
+          {currentUser ? (
             <div className="header-user-cluster">
               <UserProfileMenu onOpenAdmin={isAdmin ? onOpenAdmin : null} />
+            </div>
+          ) : (
+            <div className="header-user-cluster">
+              <button 
+                type="button" 
+                className="nav-auth-btn"
+                onClick={() => openAuthModal?.({ mode: 'login' })}
+                title="એકાઉન્ટમાં લૉગિન અથવા નવું રજિસ્ટ્રેશન કરો"
+              >
+                <LogIn size={15} />
+                <span>લૉગિન / રજિસ્ટર</span>
+              </button>
             </div>
           )}
 
@@ -189,6 +202,17 @@ export default function Navbar({
             </div>
 
             <div className="mobile-drawer-links">
+              {!currentUser && (
+                <button 
+                  className="mobile-drawer-item"
+                  onClick={() => { openAuthModal?.({ mode: 'login' }); setMobileMenuOpen(false); }}
+                  style={{ background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', color: '#1d4ed8', fontWeight: 700 }}
+                >
+                  <LogIn size={18} />
+                  <span>લૉગિન / રજિસ્ટર (Login / Sign Up)</span>
+                </button>
+              )}
+
               <button 
                 className={`mobile-drawer-item ${activeTab === 'studio' ? 'active' : ''}`}
                 onClick={() => handleTabClick('studio')}

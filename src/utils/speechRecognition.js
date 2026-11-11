@@ -6,7 +6,7 @@
  */
 
 export function isSpeechSupported() {
-  return typeof window !== 'undefined' && 
+  return typeof window !== 'undefined' &&
     ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
 }
 
@@ -49,9 +49,9 @@ export function createSpeechRecognizer({
 }) {
   if (!isSpeechSupported()) {
     if (onError) {
-      onError({ 
-        error: 'not-supported', 
-        message: 'તમારા બ્રાઉઝરમાં વોઇસ ટાઇપિંગ સપોર્ટ નથી. કૃપા કરીને Google Chrome અથવા Microsoft Edge વાપરો.' 
+      onError({
+        error: 'not-supported',
+        message: 'તમારા બ્રાઉઝરમાં વોઇસ ટાઇપિંગ સપોર્ટ નથી. કૃપા કરીને Google Chrome અથવા Microsoft Edge વાપરો.'
       });
     }
     return null;

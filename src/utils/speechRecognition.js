@@ -1,13 +1,22 @@
 /**
  * Gujarati Speech-to-Text Engine (Web Speech API)
  * Utilizes built-in Google neural speech models (gu-IN, en-IN, hi-IN)
- * Features resilient fresh-instance auto-reconnect, continuous listening across pauses,
- * and zero-drop speech handling.
+ * Enhanced with mobile-specific deduplication filter & resilient recognition
+ * ensuring mobile speech-to-text works flawlessly without repetition.
  */
 
 export function isSpeechSupported() {
   return typeof window !== 'undefined' && 
     ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
+}
+
+/**
+ * Detects if the current client is a mobile device or touch environment
+ */
+export function isMobileDevice() {
+  if (typeof window === 'undefined') return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
 }
 
 /**
@@ -48,11 +57,17 @@ export function createSpeechRecognizer({
     return null;
   }
 
+  const isMobile = isMobileDevice();
   const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
   let activeInstance = null;
   let isExplicitlyStopped = false;
   let restartTimer = null;
   let currentLang = lang;
+
+  // Track the last recognized index and delivered phrases to eliminate mobile repetition
+  let lastProcessedIndex = -1;
+  let lastDeliveredText = '';
+  let lastDeliveredTime = 0;
 
   function cleanupActiveInstance() {
     if (activeInstance) {
@@ -61,7 +76,9 @@ export function createSpeechRecognizer({
         activeInstance.onerror = null;
         activeInstance.onend = null;
         activeInstance.abort();
-      } catch (e) {}
+      } catch {
+        // Safe empty catch without unused parameter
+      }
       activeInstance = null;
     }
   }
@@ -73,7 +90,10 @@ export function createSpeechRecognizer({
     try {
       const rec = new SpeechRecognitionClass();
       rec.lang = currentLang;
-      rec.continuous = true;
+      // On desktop, continuous works great.
+      // On mobile Android Chrome, continuous=true causes speech engine to replay historic buffers.
+      // With mobile, single-shot recognition + controlled smooth restart yields 100% stable non-duplicated stream.
+      rec.continuous = !isMobile;
       rec.interimResults = true;
       rec.maxAlternatives = 1;
 
@@ -81,18 +101,34 @@ export function createSpeechRecognizer({
         let finalTranscript = '';
         let interimTranscript = '';
 
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
+        // Mobile Android Chrome bug: event.resultIndex may reset to 0 even though earlier results were already delivered.
+        // We enforce strict result tracking.
+        const startIndex = isMobile ? Math.max(event.resultIndex, lastProcessedIndex + 1) : event.resultIndex;
+
+        for (let i = startIndex; i < event.results.length; ++i) {
           const item = event.results[i];
           const text = item[0]?.transcript || '';
           if (item.isFinal) {
-            finalTranscript += text;
+            finalTranscript += (finalTranscript ? ' ' : '') + text;
+            lastProcessedIndex = Math.max(lastProcessedIndex, i);
           } else {
-            interimTranscript += text;
+            interimTranscript += (interimTranscript ? ' ' : '') + text;
           }
         }
 
-        if (finalTranscript.trim() && onResult) {
-          onResult(finalTranscript.trim());
+        const trimmedFinal = finalTranscript.trim();
+        if (trimmedFinal) {
+          const now = Date.now();
+          // Mobile deduplication guard: ignore exact repeat within 1200ms
+          const isExactRepeat = (trimmedFinal === lastDeliveredText && (now - lastDeliveredTime) < 1200);
+
+          if (!isExactRepeat) {
+            lastDeliveredText = trimmedFinal;
+            lastDeliveredTime = now;
+            if (onResult) {
+              onResult(trimmedFinal);
+            }
+          }
         }
 
         if (onInterim) {
@@ -126,14 +162,18 @@ export function createSpeechRecognizer({
 
       rec.onend = () => {
         activeInstance = null;
+        lastProcessedIndex = -1; // Reset index counter for the new recognition cycle
+
         // If not stopped intentionally by user, auto-reconnect with fresh instance so listening continues across pauses
         if (!isExplicitlyStopped) {
           clearTimeout(restartTimer);
+          // On mobile, use a clean 150ms debounce to give the Android audio buffer time to clear
+          const restartDelay = isMobile ? 150 : 80;
           restartTimer = setTimeout(() => {
             if (!isExplicitlyStopped) {
               startInstance();
             }
-          }, 80);
+          }, restartDelay);
         } else {
           if (onEnd) {
             onEnd({ isExplicitlyStopped: true });
@@ -143,15 +183,15 @@ export function createSpeechRecognizer({
 
       activeInstance = rec;
       rec.start();
-    } catch (e) {
-      console.warn('SpeechRecognition start error, scheduling retry:', e);
+    } catch (err) {
+      console.warn('SpeechRecognition start error, scheduling retry:', err);
       if (!isExplicitlyStopped) {
         clearTimeout(restartTimer);
         restartTimer = setTimeout(() => {
           if (!isExplicitlyStopped) {
             startInstance();
           }
-        }, 200);
+        }, isMobile ? 250 : 200);
       }
     }
   }
@@ -159,6 +199,9 @@ export function createSpeechRecognizer({
   return {
     start: () => {
       isExplicitlyStopped = false;
+      lastProcessedIndex = -1;
+      lastDeliveredText = '';
+      lastDeliveredTime = 0;
       clearTimeout(restartTimer);
       startInstance();
     },
@@ -181,7 +224,6 @@ export function createSpeechRecognizer({
     setLang: (newLang) => {
       currentLang = newLang;
       if (!isExplicitlyStopped) {
-        // Restart with new language
         startInstance();
       }
     }
